@@ -1,4 +1,5 @@
 datasets/**
+output/logs/
 __pycache__
 .vscode
 .ipynb_checkpoints

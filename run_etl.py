@@ -2,15 +2,7 @@ import argparse
 import sys
 import logging
 from dataset_registry import DATASET_REGISTRY
-
-def setup_logging(debug_mode: bool):
-    """Setup logging configuration."""
-    level = logging.DEBUG if debug_mode else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+from util.logging_config import setup_logging
 
 def main():
     """Run the ETL pipeline for the specified dataset configuration."""
@@ -27,7 +19,11 @@ def main():
     parser.add_argument('--debug', action='store_true', help="Enable debug-level logging.")
 
     args = parser.parse_args()
-    setup_logging(args.debug)
+    setup_logging(
+        debug_mode=args.debug,
+        log_dir='output/logs/run_etl',
+        log_prefix='etl'
+    )
 
     logging.info(f"Starting preprocessing pipeline for '{args.config}'")
 
