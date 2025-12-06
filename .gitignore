@@ -19,3 +19,6 @@ build/
 dist/
 .eggs/
 *.egg-info/
+log/**
+log_tensorboard/**
+saved/**

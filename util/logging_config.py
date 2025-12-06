@@ -2,22 +2,41 @@ import logging
 import os
 import sys
 from datetime import datetime
+from typing import Optional
+
+_original_stdout = sys.stdout
+_original_stderr = sys.stderr
 
 class PrintLogger:
-    """Redirect print statements to logging."""
-    def __init__(self, logger, level=logging.INFO):
+    """Redirect print statements to logging while preserving tqdm output."""
+    def __init__(self, logger, level=logging.INFO, original_stream=None):
         self.logger = logger
         self.level = level
+        self.original_stream = original_stream
         
     def write(self, message):
+        # Let tqdm progress bars write directly to original stream
+        if message and ('\r' in message or message.startswith('\r')):
+            if self.original_stream:
+                self.original_stream.write(message)
+                self.original_stream.flush()
+            return
+        
+        # Log regular messages (this will appear in console via logger handlers)
         if message.strip():
             self.logger.log(self.level, message.strip())
     
     def flush(self):
-        pass
+        if self.original_stream:
+            self.original_stream.flush()
 
-def setup_logging(debug_mode: bool = False, log_dir: str = None, log_prefix: str = "run", capture_print: bool = True):
+def setup_logging(debug_mode: bool = False, log_dir: Optional[str] = None, log_prefix: str = "run", capture_print: bool = True):
     """Setup logging with both console and file handlers."""
+    global _original_stdout, _original_stderr
+    
+    _original_stdout = sys.stdout
+    _original_stderr = sys.stderr
+    
     level = logging.DEBUG if debug_mode else logging.INFO
     
     logger = logging.getLogger()
@@ -29,7 +48,7 @@ def setup_logging(debug_mode: bool = False, log_dir: str = None, log_prefix: str
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(_original_stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
@@ -47,7 +66,7 @@ def setup_logging(debug_mode: bool = False, log_dir: str = None, log_prefix: str
         logging.info(f"Logging to file: {log_file}")
     
     if capture_print:
-        sys.stdout = PrintLogger(logger, logging.INFO)
-        sys.stderr = PrintLogger(logger, logging.ERROR)
+        sys.stdout = PrintLogger(logger, logging.INFO, _original_stdout)
+        sys.stderr = PrintLogger(logger, logging.ERROR, _original_stderr)
     
     return logger

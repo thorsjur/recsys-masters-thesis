@@ -1,0 +1,36 @@
+# MIND No Preprocessing Dataset Configuration
+
+# Field definitions
+USER_ID_FIELD: user_id
+ITEM_ID_FIELD: item_id
+RATING_FIELD: label
+TIME_FIELD: timestamp
+
+# Data loading
+load_col:
+  inter: [user_id, item_id, label, timestamp, impression_id]
+  item: [item_id, category, sub_category, title, abstract]
+
+# Filtering (applied during ETL)
+# user_inter_num_interval: "[5,inf)"
+# item_inter_num_interval: "[5,inf)"
+
+# Evaluation - Global temporal split
+# Option 1: Use pre-generated splits from ETL (RECOMMENDED)
+eval_args:
+  split: {'LS': 'valid_and_test'}
+  group_by: none
+  order: RO
+  mode: full
+
+# Option 2: Use RecBole's time-based split (uncomment to use)
+# eval_args:
+#   split: {'TS': [0.8, 0.1, 0.1]}
+#   group_by: user
+#   order: TO
+#   mode: full
+
+# Metrics
+metrics: ['Recall', 'NDCG', 'Hit', 'Precision', 'MRR']
+topk: [5, 10, 20, 50]
+valid_metric: NDCG@10

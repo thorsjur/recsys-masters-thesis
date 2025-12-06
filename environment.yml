@@ -6,7 +6,7 @@ channels:
 dependencies:
   # Core
   - python=3.12
-  - numpy
+  - numpy=1.26.4 # Numpy 2.0 is not compatible with RecBole
   - pandas
   - scipy
   - scikit-learn

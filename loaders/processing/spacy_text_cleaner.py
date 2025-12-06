@@ -21,7 +21,7 @@ class SpacyTextCleaner(BasePreprocessor):
         text_gen = (str(t) for t in df_item[self.target_col].fillna(""))
         results = []
 
-        for doc in tqdm(self.nlp.pipe(text_gen, batch_size=self.batch_size), total=len(df_item), desc=f"Cleaning {self.target_col}"):
+        for doc in tqdm(self.nlp.pipe(text_gen, batch_size=self.batch_size), total=len(df_item), desc=f"Cleaning {self.target_col}", file=None, dynamic_ncols=True):
             tokens = [t.text.lower() for t in doc if not t.is_stop and not t.is_punct and not t.is_space]
             results.append(" ".join(tokens))
             
