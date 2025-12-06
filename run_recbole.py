@@ -1,5 +1,4 @@
 import argparse
-import sys
 import time
 from logging import getLogger
 from importlib import import_module
@@ -8,6 +7,7 @@ from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
 from recbole.trainer import Trainer
 from recbole.utils import init_seed, init_logger
+from recbole.data.dataloader.knowledge_dataloader import KnowledgeBasedDataLoader
 
 from util.logging_config import setup_logging
 from util.results_logger import ResultsLogger
@@ -134,6 +134,9 @@ def main():
     logger.info(dataset)
     
     train_data, valid_data, test_data = data_preparation(config, dataset)
+
+    assert not isinstance(train_data, KnowledgeBasedDataLoader), \
+        "Knowledge-based models are not currently supported"
     
     model = model_class(config, train_data.dataset).to(config['device'])
     logger.info(model)
@@ -141,12 +144,31 @@ def main():
     trainer = Trainer(config, model)
     
     start_time = time.time()
-    best_valid_score, best_valid_result = trainer.fit(
-        train_data, valid_data, show_progress=True
-    )
-    training_time = time.time() - start_time
+
+    assert isinstance(config['epochs'], int) and config['epochs'] >= 0, "Number of epochs must be a non-negative integer" # type: ignore
     
-    test_result = trainer.evaluate(test_data, show_progress=True)
+    if  config['epochs'] > 0: # type: ignore
+        best_valid_score, best_valid_result = trainer.fit(
+            train_data, valid_data, show_progress=True
+        )
+        training_time = time.time() - start_time
+        test_result = trainer.evaluate(test_data, show_progress=True)
+    else:
+        logger.info("Skipping training (epochs=0, non-trainable model)")
+        training_time = time.time() - start_time
+        
+        if valid_data:
+            logger.info("Evaluating on validation set")
+            best_valid_result = trainer.evaluate(valid_data, load_best_model=False, show_progress=True)
+            assert best_valid_result is not None, "Validation result should not be None"
+
+            best_valid_score = best_valid_result.get(config['valid_metric'], 0.0)
+        else:
+            best_valid_result = None
+            best_valid_score = 0.0
+        
+        logger.info("Evaluating on test set")
+        test_result = trainer.evaluate(test_data, load_best_model=False, show_progress=True)
     
     logger.info(f'Best valid result: {best_valid_result}')
     logger.info(f'Test result: {test_result}')

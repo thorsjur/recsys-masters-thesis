@@ -1,0 +1,20 @@
+# FastText Model Configuration
+
+# Text fields
+title_field: title
+abstract_field: abstract
+use_abstract: true
+
+# User representation
+aggregation: mean  # Options: mean, sum, max
+
+# Similarity function
+similarity: cosine  # Options: cosine, dot
+
+# FastText embedding dimension
+fasttext_dim: 300
+
+# Training (not used for non-trainable model)
+epochs: 0
+train_batch_size: 2048
+eval_batch_size: 4096

@@ -48,7 +48,7 @@ class ResultsLogger:
         
         return result_entry
     
-    def _serialize_config(self, config) -> Dict[str, Any]:
+    def _serialize_config(self, config) -> Any:
         """Extract relevant config parameters for logging."""
         from recbole.config import Config
         
