@@ -105,6 +105,13 @@ def main():
         help="Human-readable description of this experimental run"
     )
     
+    parser.add_argument(
+        '--window-info',
+        type=str,
+        default=None,
+        help="JSON string with window/split information for temporal experiments"
+    )
+    
     args = parser.parse_args()
     
     setup_logging(
@@ -151,6 +158,17 @@ def main():
     
     dataset = create_dataset(config)
     logger.info(dataset)
+    
+    # Collect dataset statistics
+    dataset_stats = {
+        "num_users": int(dataset.user_num),
+        "num_items": int(dataset.item_num),
+        "num_interactions": int(dataset.inter_num),
+        "sparsity": float(1 - dataset.inter_num / (dataset.user_num * dataset.item_num)),
+        "avg_interactions_per_user": float(dataset.inter_num / dataset.user_num),
+        "avg_interactions_per_item": float(dataset.inter_num / dataset.item_num),
+        "has_item_features": dataset.item_feat is not None,
+    }
     
     # Debug: Check if item features are loaded
     logger.info(f"Original dataset has item_feat: {dataset.item_feat is not None}")
@@ -203,11 +221,15 @@ def main():
     additional_info = {
         'data_path': args.data_path,
         'config_files': config_file_list,
+        'dataset_stats': dataset_stats,
     }
     if args.experiment_id:
         additional_info['experiment_id'] = args.experiment_id
     if args.description:
         additional_info['description'] = args.description
+    if args.window_info:
+        import json
+        additional_info['window_info'] = json.loads(args.window_info)
     
     results_logger.log_experiment(
         model=args.model,

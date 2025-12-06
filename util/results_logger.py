@@ -23,25 +23,72 @@ class ResultsLogger:
         training_time: Optional[float] = None,
         additional_info: Optional[Dict[str, Any]] = None
     ):
-        """Log a single experiment result."""
+        """
+        Log a single experiment result with structured metadata.
+        
+        Output structure prioritizes experiment identification and context:
+        1. Experiment metadata (ID, description, run context)
+        2. Dataset information (name, size, sparsity)
+        3. Model and configuration
+        4. Results (validation, test)
+        5. Full config details
+        """
+        # Extract key information from additional_info
+        experiment_id = additional_info.get('experiment_id') if additional_info else None
+        description = additional_info.get('description') if additional_info else None
+        window_info = additional_info.get('window_info') if additional_info else None
+        dataset_stats = additional_info.get('dataset_stats') if additional_info else None
+        
+        # Build result entry with metadata-first structure
         result_entry = {
+            # === EXPERIMENT METADATA (FIRST FOR EASY FILTERING) ===
+            "experiment_id": experiment_id,
+            "description": description,
             "timestamp": datetime.now().isoformat(),
-            "model": model,
-            "dataset": dataset,
-            "config": self._serialize_config(config),
+            
+            # === RUN CONTEXT ===
+            "run_info": {
+                "model": model,
+                "dataset": dataset,
+                "seed": config.get('seed'),
+            },
+            
+            # === DATASET INFORMATION ===
+            "dataset_info": dataset_stats or {},
+            
+            # === WINDOW/SPLIT INFORMATION (for temporal experiments) ===
+            "window_info": window_info,
         }
         
+        # Add results
         if valid_results is not None:
-            result_entry["validation"] = valid_results
+            result_entry["validation_results"] = valid_results
         
         if test_results is not None:
-            result_entry["test"] = test_results
+            result_entry["test_results"] = test_results
         
         if training_time is not None:
             result_entry["training_time_seconds"] = training_time
         
+        # Add simplified config summary (key hyperparameters only)
+        result_entry["config_summary"] = {
+            "epochs": config.get('epochs'),
+            "learning_rate": config.get('learning_rate'),
+            "train_batch_size": config.get('train_batch_size'),
+            "eval_batch_size": config.get('eval_batch_size'),
+            "metrics": config.get('metrics'),
+            "topk": config.get('topk'),
+        }
+        
+        # Add full config at the end
+        result_entry["full_config"] = self._serialize_config(config)
+        
+        # Add any remaining additional info
         if additional_info:
-            result_entry["additional_info"] = additional_info
+            other_info = {k: v for k, v in additional_info.items() 
+                         if k not in ['experiment_id', 'description', 'window_info', 'dataset_stats']}
+            if other_info:
+                result_entry["additional_info"] = other_info
         
         with open(self.results_path, 'a') as f:
             f.write(json.dumps(result_entry) + '\n')

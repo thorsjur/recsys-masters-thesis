@@ -35,7 +35,7 @@ from util.temporal_dataset_builder import TemporalDatasetBuilder
 from util.logging_config import setup_logging
 
 
-def run_experiment(model: str, dataset: str, seed: int, config_files: list = None, params: list = None, data_path: str = 'datasets/atomic_files', experiment_id: str = None, description: str = None):
+def run_experiment(model: str, dataset: str, seed: int, config_files: list = None, params: list = None, data_path: str = 'datasets/atomic_files', experiment_id: str = None, description: str = None, window_info: dict = None):
     """Run a single experiment with specified seed."""
     cmd = [
         sys.executable,
@@ -53,6 +53,11 @@ def run_experiment(model: str, dataset: str, seed: int, config_files: list = Non
         cmd.extend(['--experiment-id', experiment_id])
     if description:
         cmd.extend(['--description', description])
+    
+    # Add window info if provided (for temporal experiments)
+    if window_info:
+        import json
+        cmd.extend(['--window-info', json.dumps(window_info)])
     
     # Add seed as parameter
     seed_param = f'seed={seed}'
@@ -138,8 +143,8 @@ Examples:
     parser.add_argument(
         '--runs',
         type=int,
-        default=5,
-        help="Number of runs with different seeds (default: 5)"
+        default=1,
+        help="Number of runs with different seeds (default: 1)"
     )
     
     # Seed control
@@ -407,7 +412,8 @@ Examples:
                     params=args.params,
                     data_path=args.data_path,
                     experiment_id=args.experiment_id,
-                    description=args.description
+                    description=args.description,
+                    window_info={"experiment_type": "D", "dataset_variant": dataset, "run_number": i, "total_runs": args.runs}
                 )
                 
                 if success:
@@ -504,6 +510,28 @@ Examples:
                 window_params = args.params.copy() if args.params else []
                 window_params.append(f"benchmark_filename={splits['benchmark_filename']}")
                 
+                # Build window information for result logging
+                window_info = {
+                    "window_number": window_idx + 1,
+                    "total_windows": num_windows,
+                    "granularity": unit_name,
+                    "window_size": args.window_size,
+                    "window_stride": stride,
+                    "window_ratio": args.window_ratio,
+                    "start_unit": start_unit,
+                    "end_unit": end_unit,
+                    "train_range": f"{train_start}-{train_end}",
+                    "train_units": train_units,
+                    "test_range": f"{test_start}-{test_end}",
+                    "test_units": test_units,
+                    "has_validation": has_valid,
+                }
+                if has_valid:
+                    window_info["valid_range"] = f"{valid_start}-{valid_end}"
+                    window_info["valid_units"] = valid_units
+                else:
+                    window_info["validation_type"] = "dummy"
+                
                 # Note: Validation file always exists (dummy if not explicitly provided)
                 if not splits['has_valid']:
                     print(f"    Note: Using dummy validation set for RecBole compatibility")
@@ -511,6 +539,11 @@ Examples:
                 # Run experiments with this window
                 for i, seed in enumerate(seeds, 1):
                     print(f"\n  Run {i}/{args.runs} (seed={seed})")
+                    
+                    # Add run number to window info
+                    run_window_info = window_info.copy()
+                    run_window_info["run_number"] = i
+                    run_window_info["total_runs_per_window"] = args.runs
                     
                     success = run_experiment(
                         model=args.model,
@@ -520,7 +553,8 @@ Examples:
                         params=window_params,
                         data_path=args.data_path,
                         experiment_id=args.experiment_id,
-                        description=args.description
+                        description=args.description,
+                        window_info=run_window_info
                     )
                     
                     if success:
@@ -545,7 +579,8 @@ Examples:
             params=args.params,
             data_path=args.data_path,
             experiment_id=args.experiment_id,
-            description=args.description
+            description=args.description,
+            window_info={"experiment_type": "B", "phase": "model_training", "model_seed": args.model_seed}
         )
         
         if not success:
@@ -586,7 +621,8 @@ Examples:
                 params=args.params,
                 data_path=args.data_path,
                 experiment_id=args.experiment_id,
-                description=args.description
+                description=args.description,
+                window_info={"experiment_type": args.experiment or "A", "run_number": i, "total_runs": args.runs}
             )
             
             if success:
