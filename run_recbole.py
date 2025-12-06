@@ -1,5 +1,6 @@
 import argparse
 import sys
+import time
 from logging import getLogger
 from importlib import import_module
 
@@ -9,6 +10,7 @@ from recbole.trainer import Trainer
 from recbole.utils import init_seed, init_logger
 
 from util.logging_config import setup_logging
+from util.results_logger import ResultsLogger
 
 
 def get_model_class(model_name):
@@ -138,14 +140,32 @@ def main():
     
     trainer = Trainer(config, model)
     
+    start_time = time.time()
     best_valid_score, best_valid_result = trainer.fit(
         train_data, valid_data, show_progress=True
     )
+    training_time = time.time() - start_time
     
     test_result = trainer.evaluate(test_data, show_progress=True)
     
     logger.info(f'Best valid result: {best_valid_result}')
     logger.info(f'Test result: {test_result}')
+    
+    results_logger = ResultsLogger()
+    results_logger.log_experiment(
+        model=args.model,
+        dataset=args.dataset,
+        config=config.final_config_dict,
+        valid_results=best_valid_result,
+        test_results=test_result,
+        training_time=training_time,
+        additional_info={
+            'data_path': args.data_path,
+            'config_files': config_file_list,
+        }
+    )
+    
+    logger.info(f'Results saved to {results_logger.results_path}')
     
     return test_result
 
