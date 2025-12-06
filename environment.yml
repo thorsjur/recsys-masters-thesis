@@ -7,22 +7,22 @@ dependencies:
   # Core
   - python=3.12
   - numpy=1.26.4 # Numpy 2.0 is not compatible with RecBole
-  - pandas
-  - scipy
-  - scikit-learn
+  - pandas=2.3.3
+  - scipy=1.16.3
+  - scikit-learn=1.7.2
   - matplotlib
   - tqdm
-  - pyyaml
+  - pyyaml=6.0.3
   - pandarallel
   
   # NLP
-  - gensim
-  - spacy
+  - gensim=4.4.0
+  - spacy=3.8.11
   
   # Deep Learning
-  - pytorch
-  - torchvision
-  - torchaudio
+  - pytorch=2.5.1
+  - torchvision=0.20.1
+  - torchaudio=2.5.1
 
   # Dev
   - ipykernel
@@ -31,7 +31,7 @@ dependencies:
   # Pip
   - pip
   - pip:
-    - recbole>=1.2.0
+    - recbole==1.2.0 # 1.2.1 gives an error when trying to install dependencies
     # Norwegian Spacy model
     - https://github.com/explosion/spacy-models/releases/download/nb_core_news_md-3.8.0/nb_core_news_md-3.8.0-py3-none-any.whl 
     # English Spacy model
