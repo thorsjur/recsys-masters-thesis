@@ -25,6 +25,6 @@ eval_args:
   mode: {'valid': 'uni4', 'test': 'uni4'}
 
 # Metrics
-metrics: ['Recall', 'NDCG', 'Hit', 'Precision', 'MRR']
-topk: [5, 10, 20, 50]
+metrics: ['Recall', 'NDCG', 'Hit', 'Precision', 'MRR', 'GAUC']
+topk: [1, 5, 10, 20]
 valid_metric: NDCG@10

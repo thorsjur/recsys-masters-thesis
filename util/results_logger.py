@@ -54,21 +54,21 @@ class ResultsLogger:
             },
             
             # === DATASET INFORMATION ===
-            "dataset_info": dataset_stats or {},
+            "dataset_info": self._make_json_serializable(dataset_stats) if dataset_stats else {},
             
             # === WINDOW/SPLIT INFORMATION (for temporal experiments) ===
-            "window_info": window_info,
+            "window_info": self._make_json_serializable(window_info) if window_info else None,
         }
         
-        # Add results
+        # Add results (convert numpy types to native Python)
         if valid_results is not None:
-            result_entry["validation_results"] = valid_results
+            result_entry["validation_results"] = self._make_json_serializable(valid_results)
         
         if test_results is not None:
-            result_entry["test_results"] = test_results
+            result_entry["test_results"] = self._make_json_serializable(test_results)
         
         if training_time is not None:
-            result_entry["training_time_seconds"] = training_time
+            result_entry["training_time_seconds"] = float(training_time)
         
         # Add simplified config summary (key hyperparameters only)
         result_entry["config_summary"] = {
