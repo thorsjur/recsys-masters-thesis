@@ -19,6 +19,7 @@ class DatasetConfig:
     spacy_model: str = "en_core_web_sm"
     min_user_history: int = 5
     min_item_frequency: int = 10
+    temporal_days: Optional[int] = None
 
     def __post_init__(self):
         if not self.raw_path:
@@ -54,7 +55,7 @@ class AbstractDataLoader(ABC):
     def df_item(self, value: pd.DataFrame):
         self._df_item = value
 
-    def execute_pipeline(self):
+    def execute_etl_pipeline(self):
         """Run the full ETL pipeline."""
         print(f"[{self.__class__.__name__}] Starting pipeline...")
         
@@ -113,4 +114,61 @@ class AbstractDataLoader(ABC):
         converter.write_interaction_file(valid, f"{base_name}.valid.inter")
         converter.write_interaction_file(test,  f"{base_name}.test.inter")
         
+        # 5. Generate day-wise splits for temporal experiments if requested
+        if self.config.temporal_days:
+            self._generate_day_wise_splits(converter)
+        
         print(f"[{self.__class__.__name__}] Export Complete.")
+    
+    def _generate_day_wise_splits(self, converter):
+        """
+        Split interactions by time for temporal stability experiments.
+        
+        Assumes df_inter has a 'timestamp' column with unix timestamps.
+        Creates files: dataset.day_1.inter, dataset.day_2.inter, etc.
+        Or: dataset.hour_1.inter, dataset.hour_2.inter, etc. (if temporal_days is a tuple)
+        """
+        if isinstance(self.config.temporal_days, tuple):
+            # Hour-level granularity: (num_hours, 'hour')
+            num_units, granularity = self.config.temporal_days
+            if granularity != 'hour':
+                print(f"Warning: Unknown granularity '{granularity}', expected 'hour'")
+                return
+            seconds_per_unit = 3600  # 1 hour
+            unit_name = 'hour'
+        else:
+            # Day-level granularity (backward compatible)
+            num_units = self.config.temporal_days
+            seconds_per_unit = 86400  # 1 day
+            unit_name = 'day'
+        
+        print(f"[{self.__class__.__name__}] Generating {unit_name}-wise splits (up to {num_units} {unit_name}s)...")
+        
+        if 'timestamp' not in self.df_inter.columns:
+            print(f"Warning: No 'timestamp' column found. Skipping temporal splits.")
+            return
+        
+        # Convert timestamp to time unit number (starting from 1)
+        min_timestamp = self.df_inter['timestamp'].min()
+        self.df_inter['time_unit'] = ((self.df_inter['timestamp'] - min_timestamp) / seconds_per_unit).astype(int) + 1
+        
+        available_units = sorted(self.df_inter['time_unit'].unique())
+        max_unit = min(max(available_units), num_units)
+        
+        print(f"  Dataset spans {len(available_units)} {unit_name}s, generating splits for {unit_name}s 1-{max_unit}")
+        
+        base_name = self.config.dataset_name
+        
+        for unit in range(1, max_unit + 1):
+            unit_df = self.df_inter[self.df_inter['time_unit'] == unit].copy()
+            
+            if len(unit_df) == 0:
+                print(f"  Warning: {unit_name.capitalize()} {unit} has no interactions, skipping")
+                continue
+            
+            # Remove the temporary time_unit column before saving
+            unit_df = unit_df.drop(columns=['time_unit'])
+            
+            converter.write_interaction_file(unit_df, f"{base_name}.{unit_name}_{unit}.inter")
+        
+        print(f"  Generated {max_unit} {unit_name}-wise interaction files")

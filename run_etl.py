@@ -17,6 +17,20 @@ def main():
     )
     
     parser.add_argument('--debug', action='store_true', help="Enable debug-level logging.")
+    
+    parser.add_argument(
+        '--temporal-days',
+        type=int,
+        default=None,
+        help="Generate day-wise splits for temporal experiments (e.g., --temporal-days 30 creates day_1.inter through day_30.inter)"
+    )
+    
+    parser.add_argument(
+        '--temporal-hours',
+        type=int,
+        default=None,
+        help="Generate hour-wise splits for temporal experiments (e.g., --temporal-hours 168 creates hour_1.inter through hour_168.inter)"
+    )
 
     args = parser.parse_args()
     setup_logging(
@@ -30,6 +44,18 @@ def main():
     try:
         config_factory = DATASET_REGISTRY[args.config]
         config, loader_class = config_factory()
+        
+        # Set temporal splitting if specified
+        if args.temporal_hours and args.temporal_days:
+            logging.error("Cannot specify both --temporal-hours and --temporal-days")
+            sys.exit(1)
+        
+        if args.temporal_hours:
+            config.temporal_days = (args.temporal_hours, 'hour')
+            logging.info(f"Temporal hour-wise splitting enabled: {args.temporal_hours} hours")
+        elif args.temporal_days:
+            config.temporal_days = args.temporal_days
+            logging.info(f"Temporal day-wise splitting enabled: {args.temporal_days} days")
     except KeyError:
         logging.error(f"Configuration key '{args.config}' was not found in the registry.")
         sys.exit(1)
@@ -41,7 +67,7 @@ def main():
     
     try:
         loader = loader_class(config)
-        loader.execute_pipeline()
+        loader.execute_etl_pipeline()
     except Exception as e:
         logging.critical(f"Pipeline failed: {e}", exc_info=True)
         sys.exit(1)

@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
-"""Run FastText model on MIND dataset."""
-
+"""
+Convenience wrapper for running FastText model.
+"""
 import sys
 sys.path.insert(0, '.')
 

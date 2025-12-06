@@ -144,3 +144,36 @@ class ResultsLogger:
                     }
         
         return comparison
+    
+    def get_stability_analysis(self, model: str, dataset: str, split: str = 'test', metrics: Optional[list] = None):
+        """
+        Analyze stability of a model across multiple runs.
+        
+        Args:
+            model: Model name
+            dataset: Dataset name
+            split: 'test' or 'validation'
+            metrics: List of metrics to analyze (if None, analyze all)
+            
+        Returns:
+            Dictionary with stability metrics (mean, std, cv, max_drop) for each metric
+        """
+        from util.stability_metrics import aggregate_runs_stability
+        
+        results = self.load_results()
+        
+        # Filter results for this model and dataset
+        filtered = [
+            r for r in results 
+            if r['model'] == model 
+            and r['dataset'] == dataset
+            and split in r
+        ]
+        
+        if not filtered:
+            return None
+        
+        # Extract the metric results from each run
+        run_results = [r[split] for r in filtered]
+        
+        return aggregate_runs_stability(run_results, metrics)

@@ -91,6 +91,20 @@ def main():
         help="Override config parameters (e.g., --params learning_rate=0.001 epochs=100)"
     )
     
+    parser.add_argument(
+        '--experiment-id',
+        type=str,
+        default=None,
+        help="Unique identifier for this experimental run"
+    )
+    
+    parser.add_argument(
+        '--description',
+        type=str,
+        default=None,
+        help="Human-readable description of this experimental run"
+    )
+    
     args = parser.parse_args()
     
     setup_logging(
@@ -130,13 +144,25 @@ def main():
     
     logger.info(config)
     
+    # Debug: Check benchmark_filename configuration
+    if 'benchmark_filename' in config and config['benchmark_filename'] is not None:
+        logger.info(f"benchmark_filename: {config['benchmark_filename']}")
+        logger.info(f"Number of splits: {len(config['benchmark_filename'])}")
+    
     dataset = create_dataset(config)
     logger.info(dataset)
     
+    # Debug: Check if item features are loaded
+    logger.info(f"Original dataset has item_feat: {dataset.item_feat is not None}")
+    
+    # data_preparation should now always return 3 datasets
     train_data, valid_data, test_data = data_preparation(config, dataset)
 
     assert not isinstance(train_data, KnowledgeBasedDataLoader), \
         "Knowledge-based models are not currently supported"
+    
+    # Debug: Check train_data.dataset
+    logger.info(f"train_data.dataset has item_feat: {train_data.dataset.item_feat is not None}")
     
     model = model_class(config, train_data.dataset).to(config['device'])
     logger.info(model)
@@ -174,6 +200,15 @@ def main():
     logger.info(f'Test result: {test_result}')
     
     results_logger = ResultsLogger()
+    additional_info = {
+        'data_path': args.data_path,
+        'config_files': config_file_list,
+    }
+    if args.experiment_id:
+        additional_info['experiment_id'] = args.experiment_id
+    if args.description:
+        additional_info['description'] = args.description
+    
     results_logger.log_experiment(
         model=args.model,
         dataset=args.dataset,
@@ -181,10 +216,7 @@ def main():
         valid_results=best_valid_result,
         test_results=test_result,
         training_time=training_time,
-        additional_info={
-            'data_path': args.data_path,
-            'config_files': config_file_list,
-        }
+        additional_info=additional_info
     )
     
     logger.info(f'Results saved to {results_logger.results_path}')
