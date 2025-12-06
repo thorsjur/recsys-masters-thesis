@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import warnings
 from datetime import datetime
 from typing import Optional
 
@@ -36,6 +37,8 @@ def setup_logging(debug_mode: bool = False, log_dir: Optional[str] = None, log_p
     
     _original_stdout = sys.stdout
     _original_stderr = sys.stderr
+    
+    warnings.filterwarnings('ignore', category=FutureWarning)
     
     level = logging.DEBUG if debug_mode else logging.INFO
     
