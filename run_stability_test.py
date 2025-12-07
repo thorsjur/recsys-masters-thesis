@@ -31,11 +31,12 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from typing import Optional, Dict, Any
 from util.temporal_dataset_builder import TemporalDatasetBuilder
 from util.logging_config import setup_logging
 
 
-def run_experiment(model: str, dataset: str, seed: int, config_files: list = None, params: list = None, data_path: str = 'datasets/atomic_files', experiment_id: str = None, description: str = None, window_info: dict = None):
+def run_experiment(model: str, dataset: str, seed: int, config_files: Optional[list] = None, params: Optional[list] = None, data_path: str = 'datasets/atomic_files', experiment_id: Optional[str] = None, description: Optional[str] = None, window_info: Optional[dict] = None):
     """Run a single experiment with specified seed."""
     cmd = [
         sys.executable,
@@ -248,22 +249,6 @@ Examples:
     if not args.experiment_id:
         args.experiment_id = str(uuid.uuid4())[:8]
     
-    # Auto-include dataset and model configs if not already specified
-    dataset_config = f'configs/{args.dataset}.yaml'
-    model_config = f'configs/{args.model.lower()}.yaml'
-    
-    # Build config list with proper ordering: dataset first, then model
-    if args.config is None:
-        args.config = []
-    
-    # Add dataset config if exists and not already in list
-    if os.path.exists(dataset_config) and dataset_config not in args.config:
-        args.config.insert(0, dataset_config)
-    
-    # Add model config if exists and not already in list
-    if os.path.exists(model_config) and model_config not in args.config:
-        args.config.append(model_config)
-    
     # Setup logging to capture all output
     experiment_suffix = f"{args.experiment}_{args.model}_{args.dataset}" if args.experiment else f"{args.model}_{args.dataset}"
     setup_logging(
@@ -362,6 +347,7 @@ Examples:
             
             if has_valid:
                 valid_start = train_end + 1
+                assert valid_start is not None  # Type guard for linter
                 valid_end = valid_start + valid_units - 1
                 test_start = valid_end + 1
                 test_end = end
@@ -470,8 +456,12 @@ Examples:
             train_start = start_unit
             train_end = start_unit + train_units - 1
             
+            valid_start: Optional[int]
+            valid_end: Optional[int]
+            
             if has_valid:
                 valid_start = train_end + 1
+                assert valid_start is not None
                 valid_end = valid_start + valid_units - 1
                 test_start = valid_end + 1
                 test_end = end_unit
@@ -492,16 +482,18 @@ Examples:
             # Build temporary splits for this window
             try:
                 if unit_name == 'hour':
+                    valid_hours_tuple = (valid_start, valid_end) if has_valid and valid_start is not None and valid_end is not None else None
                     temp_dir, splits = builder.build_temporal_splits(
                         train_hours=(train_start, train_end),
-                        valid_hours=(valid_start, valid_end) if has_valid else None,
+                        valid_hours=valid_hours_tuple,
                         test_hours=(test_start, test_end),
                         temp_prefix=f'window{window_idx+1}'
                     )
                 else:
+                    valid_days_tuple = (valid_start, valid_end) if has_valid and valid_start is not None and valid_end is not None else None
                     temp_dir, splits = builder.build_temporal_splits(
                         train_days=(train_start, train_end),
-                        valid_days=(valid_start, valid_end) if has_valid else None,
+                        valid_days=valid_days_tuple,
                         test_days=(test_start, test_end),
                         temp_prefix=f'window{window_idx+1}'
                     )

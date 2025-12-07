@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from util.statistics import coefficient_of_variation, range_statistic, mean, std
 
@@ -38,7 +38,7 @@ def calculate_stability_metrics(metric_values: List[float]) -> Dict[str, float]:
     }
 
 
-def aggregate_runs_stability(results: List[Dict[str, float]], metrics: List[str] = None) -> Dict[str, Dict[str, float]]:
+def aggregate_runs_stability(results: List[Dict[str, float]], metrics: Optional[List[str]] = None) -> Dict[str, Dict[str, float]]:
     """
     Aggregate multiple run results and compute stability metrics.
     

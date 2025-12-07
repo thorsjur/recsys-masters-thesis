@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Tuple, Union
 import pandas as pd
 from dataclasses import dataclass, field
 
@@ -19,7 +19,7 @@ class DatasetConfig:
     spacy_model: str = "en_core_web_sm"
     min_user_history: int = 5
     min_item_frequency: int = 10
-    temporal_days: Optional[int] = None
+    temporal_days: Optional[Union[int, Tuple[int, str]]] = None
 
     def __post_init__(self):
         if not self.raw_path:

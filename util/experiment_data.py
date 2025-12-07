@@ -28,8 +28,8 @@ def load_experiment_results(jsonl_path: str, experiment_id: str) -> List[Dict[st
         FileNotFoundError: If jsonl_path does not exist
         ValueError: If no results found for experiment_id
     """
-    jsonl_path = Path(jsonl_path)
-    if not jsonl_path.exists():
+    path = Path(jsonl_path)
+    if not path.exists():
         raise FileNotFoundError(f"Results file not found: {jsonl_path}")
     
     results = []

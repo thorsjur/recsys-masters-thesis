@@ -47,7 +47,7 @@ def coefficient_of_variation(values: Union[np.ndarray, List[float]],
     std = np.std(values, ddof=0)  # Population std (ddof=0) for consistency
     cv = std / mean
     
-    return (cv * 100.0) if percent else cv
+    return float(cv * 100.0) if percent else float(cv)
 
 
 def range_statistic(values: Union[np.ndarray, List[float]]) -> float:

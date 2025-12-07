@@ -64,14 +64,18 @@ def plot_temporal_stability(experiment_id: str | List[str],
     
     # Use first experiment's metadata for plot info
     metadata = all_data[0]['metadata']
-    metrics = all_data[0]['metrics']
+    plot_metrics = all_data[0]['metrics']
+    
+    # Ensure metrics is not None
+    if plot_metrics is None:
+        raise ValueError("No metrics found in experiment data")
     
     # Set up plot
     fig, axes = plt.subplots(2, 2, figsize=figsize)
     axes = axes.flatten()
     
-    # Color palette - support up to 10 experiments
-    color_palette = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', 
+    # Color palette for multiple experiments
+    color_palette = ['#2E86AB', '#F18F01', '#A23B72',
                      '#06A77D', '#D4AF37', '#9B59B6', '#E74C3C',
                      '#16A085', '#F39C12']
     
@@ -79,7 +83,7 @@ def plot_temporal_stability(experiment_id: str | List[str],
     line_styles = ['-', '--', '-.', ':']
     
     # Plot each metric
-    for idx, metric in enumerate(metrics):
+    for idx, metric in enumerate(plot_metrics):
         ax = axes[idx]
         
         # Determine if we're using temporal x-axis
@@ -198,19 +202,21 @@ def plot_temporal_stability(experiment_id: str | List[str],
     )
     fig.text(0.5, 0.02, config_text, ha='center', fontsize=9, color='#666')
     
-    plt.tight_layout(rect=[0, 0.03, 1, 0.90])
+    plt.tight_layout(rect=(0, 0.03, 1, 0.90))
     
     # Save to PDF
     if output_path is None:
         output_dir = Path('plot/output')
         output_dir.mkdir(parents=True, exist_ok=True)
         if len(all_data) == 1:
-            output_path = output_dir / f"{experiment_ids[0]}_temporal_stability.pdf"
+            save_path = output_dir / f"{experiment_ids[0]}_temporal_stability.pdf"
         else:
-            output_path = output_dir / f"comparison_{'_'.join(experiment_ids)}_temporal_stability.pdf"
+            save_path = output_dir / f"comparison_{'_'.join(experiment_ids)}_temporal_stability.pdf"
+    else:
+        save_path = Path(output_path)
     
-    plt.savefig(output_path, format='pdf', dpi=300, bbox_inches='tight')
-    print(f"✓ Plot saved to: {output_path}")
+    plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
+    print(f"✓ Plot saved to: {save_path}")
     
     # Calculate and print stability metrics for each experiment
     print(f"\n{'='*70}")
@@ -231,9 +237,9 @@ def plot_temporal_stability(experiment_id: str | List[str],
         print(f"Model: {exp_metadata['model']} | Dataset: {exp_metadata['dataset']}")
         print(f"Windows: {exp_metadata['total_windows']} | Runs per window: {exp_metadata['runs_per_window']}")
         
-        stability_stats = compute_temporal_stability_stats(windows, metrics)
+        stability_stats = compute_temporal_stability_stats(windows, plot_metrics)
         
-        for metric in metrics:
+        for metric in plot_metrics:
             stats = stability_stats[metric]
             print(f"\n  {metric.upper()}:")
             print(f"    Mean across windows: {stats['mean']:.4f}")

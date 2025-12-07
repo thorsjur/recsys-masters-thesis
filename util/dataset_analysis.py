@@ -18,6 +18,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.patches import Rectangle
+from matplotlib.axes import Axes
 
 from util.experiment_data import load_experiment_results
 from util.statistics import basic_stats
@@ -78,7 +79,7 @@ def compute_temporal_statistics(df: pd.DataFrame,
         Dictionary with temporal statistics
     """
     if start_timestamp is None:
-        start_timestamp = df['timestamp'].min()
+        start_timestamp = float(df['timestamp'].min())
     
     stats = {
         'total_interactions': len(df),
@@ -89,7 +90,7 @@ def compute_temporal_statistics(df: pd.DataFrame,
         'time_span_seconds': float(df['timestamp'].max() - df['timestamp'].min()),
         'first_timestamp': float(df['timestamp'].min()),
         'last_timestamp': float(df['timestamp'].max()),
-        'start_datetime': datetime.fromtimestamp(start_timestamp).isoformat(),
+        'start_datetime': datetime.fromtimestamp(float(start_timestamp)).isoformat(),
         'granularity': granularity,
     }
     
@@ -129,7 +130,7 @@ def plot_interactions_over_time(df: pd.DataFrame,
                                 granularity: str,
                                 start_timestamp: float,
                                 window_info: Optional[List[Dict]] = None,
-                                ax: Optional[plt.Axes] = None) -> plt.Axes:
+                                ax: Optional[Axes] = None) -> Axes:
     """
     Plot interactions over time with time-of-day/week patterns.
     
@@ -178,23 +179,23 @@ def plot_interactions_over_time(df: pd.DataFrame,
             test_end = window.get('end_unit')
             
             if granularity == 'hour':
-                train_start_dt = start_datetime + timedelta(hours=train_start)
-                train_end_dt = start_datetime + timedelta(hours=train_end)
-                test_start_dt = start_datetime + timedelta(hours=test_start)
-                test_end_dt = start_datetime + timedelta(hours=test_end)
+                train_start_dt = start_datetime + timedelta(hours=float(train_start or 0))
+                train_end_dt = start_datetime + timedelta(hours=float(train_end or 0))
+                test_start_dt = start_datetime + timedelta(hours=float(test_start or 0))
+                test_end_dt = start_datetime + timedelta(hours=float(test_end or 0))
             else:
-                train_start_dt = start_datetime + timedelta(days=train_start)
-                train_end_dt = start_datetime + timedelta(days=train_end)
-                test_start_dt = start_datetime + timedelta(days=test_start)
-                test_end_dt = start_datetime + timedelta(days=test_end)
+                train_start_dt = start_datetime + timedelta(days=float(train_start or 0))
+                train_end_dt = start_datetime + timedelta(days=float(train_end or 0))
+                test_start_dt = start_datetime + timedelta(days=float(test_start or 0))
+                test_end_dt = start_datetime + timedelta(days=float(test_end or 0))
             
             color = colors[i % len(colors)]
             
             # Train region
-            ax.axvspan(train_start_dt, train_end_dt, alpha=0.15, color=color, 
+            ax.axvspan(train_start_dt, train_end_dt, alpha=0.15, color=color,  # type: ignore
                       label=f'W{window["window_number"]} Train' if i < 3 else None)
             # Test region
-            ax.axvspan(test_start_dt, test_end_dt, alpha=0.3, color=color,
+            ax.axvspan(test_start_dt, test_end_dt, alpha=0.3, color=color,  # type: ignore
                       label=f'W{window["window_number"]} Test' if i < 3 else None)
     
     ax.set_xlabel(xlabel, fontsize=12, fontweight='bold')
@@ -218,7 +219,7 @@ def plot_interactions_over_time(df: pd.DataFrame,
 
 def plot_time_of_day_pattern(df: pd.DataFrame,
                              start_timestamp: float,
-                             ax: Optional[plt.Axes] = None) -> plt.Axes:
+                             ax: Optional[Axes] = None) -> Axes:
     """
     Plot interaction patterns by hour of day.
     
@@ -235,7 +236,7 @@ def plot_time_of_day_pattern(df: pd.DataFrame,
     
     # Convert to datetime and extract hour of day
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-    df['hour_of_day'] = df['datetime'].dt.hour
+    df['hour_of_day'] = df['datetime'].dt.hour  # type: ignore
     
     # Aggregate by hour
     hourly_counts = df.groupby('hour_of_day').size()
@@ -263,7 +264,7 @@ def plot_time_of_day_pattern(df: pd.DataFrame,
 
 
 def plot_user_item_distributions(df: pd.DataFrame,
-                                 ax: Optional[Tuple[plt.Axes, plt.Axes]] = None) -> Tuple[plt.Axes, plt.Axes]:
+                                 ax: Optional[Tuple[Axes, Axes]] = None) -> Tuple[Axes, Axes]:
     """
     Plot user activity and item popularity distributions.
     
@@ -313,7 +314,7 @@ def plot_user_item_distributions(df: pd.DataFrame,
 
 
 def plot_window_statistics(window_stats: List[Dict[str, Any]],
-                           ax: Optional[plt.Axes] = None) -> plt.Axes:
+                           ax: Optional[Axes] = None) -> Axes:
     """
     Plot statistics across temporal windows.
     
@@ -351,7 +352,7 @@ def plot_window_statistics(window_stats: List[Dict[str, Any]],
 def plot_interaction_heatmap(df: pd.DataFrame,
                              granularity: str,
                              start_timestamp: float,
-                             ax: Optional[plt.Axes] = None) -> plt.Axes:
+                             ax: Optional[Axes] = None) -> Axes:
     """
     Plot heatmap of interactions across time units and hours/days.
     
@@ -373,7 +374,7 @@ def plot_interaction_heatmap(df: pd.DataFrame,
     
     if granularity == 'hour':
         # Hour of day vs time unit
-        df['hour_of_day'] = df['datetime'].dt.hour
+        df['hour_of_day'] = df['datetime'].dt.hour  # type: ignore
         pivot = df.groupby(['time_unit', 'hour_of_day']).size().unstack(fill_value=0)
         
         # Normalize by row for better visualization
@@ -389,11 +390,11 @@ def plot_interaction_heatmap(df: pd.DataFrame,
         ax.set_xticks(range(0, len(pivot), step))
         ax.set_xticklabels([str(i) for i in pivot.index[::step]], fontsize=8)
         ax.set_yticks(range(24))
-        ax.set_yticklabels(range(24), fontsize=8)
+        ax.set_yticklabels([str(i) for i in range(24)], fontsize=8)
         
     else:
         # Day of week vs time unit
-        df['day_of_week'] = df['datetime'].dt.dayofweek
+        df['day_of_week'] = df['datetime'].dt.dayofweek  # type: ignore
         pivot = df.groupby(['time_unit', 'day_of_week']).size().unstack(fill_value=0)
         
         # Normalize by row

@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from logging import getLogger
 from importlib import import_module
@@ -146,9 +147,21 @@ def main():
         log_prefix=f'{args.model.lower()}_{args.dataset}'
     )
     
+    # Auto-include dataset and model configs if not already specified
     config_file_list = []
     if args.config:
         config_file_list.extend(args.config)
+    
+    dataset_config = f'configs/{args.dataset}.yaml'
+    model_config = f'configs/{args.model.lower()}.yaml'
+    
+    # Add dataset config if exists and not already in list
+    if os.path.exists(dataset_config) and dataset_config not in config_file_list:
+        config_file_list.insert(0, dataset_config)
+    
+    # Add model config if exists and not already in list
+    if os.path.exists(model_config) and model_config not in config_file_list:
+        config_file_list.append(model_config)
     
     config_dict = {
         'data_path': args.data_path,
@@ -180,7 +193,7 @@ def main():
     # Debug: Check benchmark_filename configuration
     if 'benchmark_filename' in config and config['benchmark_filename'] is not None:
         logger.info(f"benchmark_filename: {config['benchmark_filename']}")
-        logger.info(f"Number of splits: {len(config['benchmark_filename'])}")
+        logger.info(f"Number of splits: {len(config['benchmark_filename'])}")  # type: ignore
     
     dataset = create_dataset(config)
     logger.info(dataset)
@@ -206,7 +219,7 @@ def main():
         "Knowledge-based models are not currently supported"
     
     # Debug: Check train_data.dataset
-    logger.info(f"train_data.dataset has item_feat: {train_data.dataset.item_feat is not None}")
+    logger.info(f"train_data.dataset has item_feat: {train_data.dataset.item_feat is not None}")  # type: ignore
     
     model = model_class(config, train_data.dataset).to(config['device'])
     logger.info(model)
