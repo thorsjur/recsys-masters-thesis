@@ -2,6 +2,9 @@ import argparse
 import time
 from logging import getLogger
 from importlib import import_module
+import importlib.util
+import sys
+from pathlib import Path
 
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
@@ -21,6 +24,29 @@ def get_model_class(model_name):
     except (ImportError, AttributeError):
         pass
     
+    model_file_map = {
+        'Pop': 'pop.py',
+        'Random': 'random.py',
+    }
+    
+    if model_name in model_file_map:
+        try:
+            import recbole
+            recbole_path = Path(recbole.__file__).parent
+            model_file = recbole_path / 'model' / 'general_recommender' / model_file_map[model_name]
+            
+            if model_file.exists():
+                # Load module directly from file
+                spec = importlib.util.spec_from_file_location(f"recbole_model_{model_name}", model_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[f"recbole_model_{model_name}"] = module
+                    spec.loader.exec_module(module)
+                    return getattr(module, model_name)
+        except Exception as e:
+            pass
+    
+    # Fallback to generic imports
     try:
         module = import_module('recbole.model.general_recommender')
         return getattr(module, model_name)

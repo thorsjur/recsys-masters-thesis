@@ -1,0 +1,10 @@
+# Pop (Popularity) Model Configuration
+# Non-trainable baseline - ranks items by global popularity
+
+# Training (needs 1 epoch to count item popularity)
+epochs: 1
+train_batch_size: 2048
+eval_batch_size: 4096
+
+# Evaluation
+neg_sampling: null

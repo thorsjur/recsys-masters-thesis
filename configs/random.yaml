@@ -1,0 +1,10 @@
+# Random Model Configuration
+# Non-trainable baseline - ranks items randomly
+
+# Training (needs 1 epoch to initialize, though ranking is random)
+epochs: 1
+train_batch_size: 2048
+eval_batch_size: 4096
+
+# Evaluation
+neg_sampling: null

@@ -8,6 +8,8 @@ This file tracks all experiments run in this project. Use this to find the corre
 |----|------|-------------|-------|---------|--------|--------|
 | exp_tfidf_temporal_36h | 2025-12-06 | TFIDF temporal stability with 36h train, 12h test, 12h stride across 144h MIND dataset | TFIDF | mind_small | 36h train, 12h test, 12h stride, 3 runs per window | Planned |
 | exp_fasttext_temporal_36h | 2025-12-06 | FastText temporal stability with 36h train, 12h test, 12h stride across 144h MIND dataset | FastText | mind_small | 36h train, 12h test, 12h stride, 3 runs per window | Planned |
+| exp_pop_temporal_36h | 2025-12-06 | Pop (popularity) temporal stability with 36h train, 12h test, 12h stride across 144h MIND dataset | Pop | mind_small | 36h train, 12h test, 12h stride, 3 runs per window | Planned |
+| exp_random_temporal_36h | 2025-12-07 | Random baseline temporal stability with 36h train, 12h test, 12h stride across 144h MIND dataset | Random | mind_small | 36h train, 12h test, 12h stride, 3 runs per window | Planned |
 
 ## Experiment Details
 
@@ -49,6 +51,42 @@ This file tracks all experiments run in this project. Use this to find the corre
   - 3 runs capture stochastic training variance
   - FastText embeddings adapt to temporal semantic shifts
   - Epochs=20 balances training time vs convergence
+
+### exp_pop_temporal_36h
+- **Purpose**: Evaluate popularity baseline stability across temporal windows
+- **Configuration**:
+  - Training window: 36 hours
+  - Test window: 12 hours
+  - Window stride: 12 hours (50% overlap)
+  - Total dataset: 144 hours
+  - Expected windows: 9 windows
+  - Runs per window: 3 (captures evaluation sampling variance)
+  - Total runs: 27
+- **Script**: `run_pop_temporal_36h.sh`
+- **Expected output**: Results grouped by experiment ID in `experiments.jsonl`
+- **Rationale**:
+  - Non-personalized baseline (ranks by global popularity)
+  - Deterministic model (no training variance)
+  - Expected to show high temporal instability as trending topics shift
+  - 3 runs measure evaluation protocol variance only
+
+### exp_random_temporal_36h
+- **Purpose**: Evaluate random baseline as lower bound for temporal stability
+- **Configuration**:
+  - Training window: 36 hours
+  - Test window: 12 hours
+  - Window stride: 12 hours (50% overlap)
+  - Total dataset: 144 hours
+  - Expected windows: 9 windows
+  - Runs per window: 3 (captures random seed variance)
+  - Total runs: 27
+- **Script**: `run_random_temporal_36h.sh`
+- **Expected output**: Results grouped by experiment ID in `experiments.jsonl`
+- **Rationale**:
+  - Sanity check baseline (performance floor)
+  - Pure stochastic ranking (no learning)
+  - Expected to show high variance across runs
+  - Validates that other models perform above random
 
 ## Notes
 
