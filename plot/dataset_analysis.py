@@ -69,15 +69,17 @@ def analyze_dataset_from_experiment(experiment_id: str,
     dataset_name = first_result.get('run_info', {}).get('dataset', 'unknown')
     granularity = window_info.get('granularity', 'hour')
     
-    # Collect all windows
-    all_windows = []
+    # Collect all windows (deduplicate by window_number since there can be multiple runs per window)
+    windows_by_number = {}
     for result in results:
         w_info = result.get('window_info', {})
-        if w_info not in all_windows:
-            all_windows.append(w_info)
+        if w_info:
+            win_num = w_info.get('window_number')
+            if win_num is not None and win_num not in windows_by_number:
+                windows_by_number[win_num] = w_info
     
     # Sort by window number
-    all_windows = sorted(all_windows, key=lambda x: x.get('window_number', 0))
+    all_windows = [windows_by_number[k] for k in sorted(windows_by_number.keys())]
     
     # Determine time range to load
     min_unit = min(w.get('start_unit', 0) for w in all_windows)

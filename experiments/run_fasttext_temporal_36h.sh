@@ -13,7 +13,6 @@
 #   - Expected windows: 9
 #   - Runs per window: 3
 #   - Total runs: 27
-#   - Hyperparameters: lr=0.001, embedding_size=64, epochs=20
 
 set -e  # Exit on error
 
@@ -41,10 +40,6 @@ echo "  - Stride: 12 hours (50% overlap)"
 echo "  - Total dataset: 144 hours"
 echo "  - Expected windows: 9"
 echo "  - Runs per window: $RUNS"
-echo "Hyperparameters:"
-echo "  - Learning rate: 0.001"
-echo "  - Embedding size: 64"
-echo "  - Epochs: 20"
 echo "================================================================================"
 
 # Change to project root

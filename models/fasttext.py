@@ -44,7 +44,6 @@ class FastText(GeneralRecommender):
         self.dummy_param = torch.nn.Parameter(torch.zeros(1))
         
         self._build_item_embeddings(dataset)
-        self._build_user_history(dataset)
     
     def _build_item_embeddings(self, dataset):
         """Build FastText embeddings for all items."""
@@ -122,12 +121,6 @@ class FastText(GeneralRecommender):
                 tokens.extend(abstract.split())
         
         return tokens
-    
-    def _build_user_history(self, dataset):
-        """Build user interaction history."""
-        # NOTE: We don't actually build history here anymore - we get it dynamically
-        # from the dataset during prediction to handle temporal splits correctly
-        self.logger.info("User history will be retrieved dynamically during prediction")
     
     def _aggregate_user_history(self, user_id, interaction):
         """Aggregate user's historical item embeddings into user representation."""
