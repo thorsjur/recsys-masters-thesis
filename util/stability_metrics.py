@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Dict, List
 
+from util.statistics import coefficient_of_variation, range_statistic, mean, std
+
 
 def calculate_stability_metrics(metric_values: List[float]) -> Dict[str, float]:
     """
@@ -12,7 +14,7 @@ def calculate_stability_metrics(metric_values: List[float]) -> Dict[str, float]:
     Returns:
         Dictionary containing:
             - mean: Average value
-            - std: Standard deviation
+            - std: Standard deviation (sample std with ddof=1)
             - cv: Coefficient of Variation (%)
             - max_drop: Maximum drop (best - worst)
             - min: Minimum value
@@ -22,20 +24,14 @@ def calculate_stability_metrics(metric_values: List[float]) -> Dict[str, float]:
         return {}
     
     values = np.array(metric_values)
-    mean_val = np.mean(values)
-    std_val = np.std(values, ddof=1) if len(values) > 1 else 0.0
     
-    # Coefficient of Variation (CV)
-    cv = (std_val / mean_val * 100.0) if mean_val != 0 else 0.0
-    
-    # Maximum Drop (Δ_max)
-    max_drop = np.max(values) - np.min(values)
+    std_val = std(values, ddof=1) if len(values) > 1 else 0.0
     
     return {
-        'mean': float(mean_val),
-        'std': float(std_val),
-        'cv': float(cv),
-        'max_drop': float(max_drop),
+        'mean': mean(values),
+        'std': std_val,
+        'cv': coefficient_of_variation(values, percent=True),
+        'max_drop': range_statistic(values),
         'min': float(np.min(values)),
         'max': float(np.max(values)),
         'n_runs': len(values)

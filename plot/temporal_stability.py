@@ -5,129 +5,19 @@ This module provides functions to visualize how model performance changes
 across temporal windows, helping identify temporal drift and stability patterns.
 """
 
-import json
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend to avoid Qt warnings
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
-from datetime import datetime
 
-
-def load_experiment_results(jsonl_path: str, experiment_id: str) -> List[Dict[str, Any]]:
-    """
-    Load all results for a specific experiment from JSONL file.
-    
-    Args:
-        jsonl_path: Path to experiments.jsonl file
-        experiment_id: Experiment ID to filter by
-        
-    Returns:
-        List of result dictionaries for the specified experiment
-    """
-    results = []
-    with open(jsonl_path, 'r') as f:
-        for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-                if entry.get('experiment_id') == experiment_id:
-                    results.append(entry)
-            except json.JSONDecodeError as e:
-                print(f"Warning: Skipping invalid JSON on line {line_num}: {e}")
-                continue
-    
-    if not results:
-        raise ValueError(f"No results found for experiment_id: {experiment_id}")
-    
-    return results
-
-
-def extract_temporal_metrics(results: List[Dict[str, Any]], 
-                            metrics: Optional[List[str]] = None) -> Dict[str, Any]:
-    """
-    Extract and organize metrics across temporal windows.
-    
-    Args:
-        results: List of experiment results
-        metrics: List of metrics to extract (e.g., ['ndcg@10', 'recall@20'])
-                If None, uses news-optimized metrics: ndcg@10, recall@10, mrr@1, hit@5
-        
-    Returns:
-        Dictionary with organized metrics data and metadata
-    """
-    if metrics is None:
-        metrics = ['ndcg@5', 'ndcg@10', 'mrr@5', 'hit@5']
-    
-    # Sort results by window number and run number
-    sorted_results = sorted(results, 
-                          key=lambda x: (x.get('window_info', {}).get('window_number', 0),
-                                       x.get('window_info', {}).get('run_number', 0)))
-    
-    # Group by window
-    windows = {}
-    for result in sorted_results:
-        window_info = result.get('window_info', {})
-        window_num = window_info.get('window_number', 0)
-        
-        if window_num not in windows:
-            windows[window_num] = {
-                'runs': [],
-                'window_info': window_info,
-                'dataset_info': result.get('dataset_info', {})
-            }
-        
-        # Extract test results for this run
-        test_results = result.get('test_results', {})
-        run_metrics = {metric: test_results.get(metric) for metric in metrics}
-        windows[window_num]['runs'].append(run_metrics)
-    
-    # Calculate statistics per window
-    window_data = {}
-    for window_num, data in sorted(windows.items()):
-        window_data[window_num] = {
-            'mean': {},
-            'std': {},
-            'min': {},
-            'max': {},
-            'values': {},
-            'info': data['window_info'],
-            'dataset': data['dataset_info']
-        }
-        
-        for metric in metrics:
-            values = [run[metric] for run in data['runs'] if run[metric] is not None]
-            if values:
-                window_data[window_num]['mean'][metric] = np.mean(values)
-                window_data[window_num]['std'][metric] = np.std(values)
-                window_data[window_num]['min'][metric] = np.min(values)
-                window_data[window_num]['max'][metric] = np.max(values)
-                window_data[window_num]['values'][metric] = values
-    
-    # Extract metadata
-    first_result = sorted_results[0]
-    metadata = {
-        'experiment_id': first_result.get('experiment_id'),
-        'description': first_result.get('description'),
-        'model': first_result.get('run_info', {}).get('model'),
-        'dataset': first_result.get('run_info', {}).get('dataset'),
-        'granularity': first_result.get('window_info', {}).get('granularity', 'unknown'),
-        'window_size': first_result.get('window_info', {}).get('window_size'),
-        'window_stride': first_result.get('window_info', {}).get('window_stride'),
-        'total_windows': len(windows),
-        'runs_per_window': len(data['runs'])
-    }
-    
-    return {
-        'windows': window_data,
-        'metadata': metadata,
-        'metrics': metrics
-    }
+from util.experiment_data import (
+    load_experiment_results,
+    extract_temporal_metrics,
+    compute_temporal_stability_stats
+)
 
 
 def plot_temporal_stability(experiment_id: str,
@@ -284,7 +174,9 @@ def plot_temporal_stability(experiment_id: str,
     plt.savefig(output_path, format='pdf', dpi=300, bbox_inches='tight')
     print(f"✓ Plot saved to: {output_path}")
     
-    # Calculate and print stability metrics
+    # Calculate and print stability metrics using util functions
+    stability_stats = compute_temporal_stability_stats(windows, metrics)
+    
     print(f"\n{'='*70}")
     print(f"Temporal Stability Analysis - {metadata['experiment_id']}")
     print(f"{'='*70}")
@@ -293,15 +185,13 @@ def plot_temporal_stability(experiment_id: str,
     print(f"{'-'*70}")
     
     for metric in metrics:
-        all_means = [windows[w]['mean'][metric] for w in sorted(windows.keys())]
-        cv = (np.std(all_means) / np.mean(all_means)) * 100 if np.mean(all_means) > 0 else 0
-        
+        stats = stability_stats[metric]
         print(f"\n{metric.upper()}:")
-        print(f"  Mean across windows: {np.mean(all_means):.4f}")
-        print(f"  Std across windows:  {np.std(all_means):.4f}")
-        print(f"  Coefficient of Variation: {cv:.2f}%")
-        print(f"  Min: {np.min(all_means):.4f} | Max: {np.max(all_means):.4f}")
-        print(f"  Range: {np.max(all_means) - np.min(all_means):.4f}")
+        print(f"  Mean across windows: {stats['mean']:.4f}")
+        print(f"  Std across windows:  {stats['std']:.4f}")
+        print(f"  Coefficient of Variation: {stats['cv']:.2f}%")
+        print(f"  Min: {stats['min']:.4f} | Max: {stats['max']:.4f}")
+        print(f"  Range: {stats['range']:.4f}")
     
     print(f"{'='*70}\n")
     
