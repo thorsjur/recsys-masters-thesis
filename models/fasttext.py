@@ -39,6 +39,8 @@ class FastText(GeneralRecommender):
         self.similarity = config['similarity'] if 'similarity' in config else 'cosine'
         self.fasttext_dim = config['fasttext_dim'] if 'fasttext_dim' in config else 300
         
+        self.logger.info(f"FastText model initializing with aggregation={self.aggregation}, similarity={self.similarity}")
+        
         self.dummy_param = torch.nn.Parameter(torch.zeros(1))
         
         self._build_item_embeddings(dataset)
@@ -123,24 +125,22 @@ class FastText(GeneralRecommender):
     
     def _build_user_history(self, dataset):
         """Build user interaction history."""
-        inter_feat = dataset.inter_feat
-        user_ids = inter_feat[self.USER_ID].numpy()
-        item_ids = inter_feat[self.ITEM_ID].numpy()
-        
-        self.user_history = {}
-        for user_id, item_id in zip(user_ids, item_ids):
-            if user_id not in self.user_history:
-                self.user_history[user_id] = []
-            self.user_history[user_id].append(item_id)
-        
-        self.logger.info(f"Built user history for {len(self.user_history)} users")
+        # NOTE: We don't actually build history here anymore - we get it dynamically
+        # from the dataset during prediction to handle temporal splits correctly
+        self.logger.info("User history will be retrieved dynamically during prediction")
     
-    def _aggregate_user_history(self, user_id):
+    def _aggregate_user_history(self, user_id, interaction):
         """Aggregate user's historical item embeddings into user representation."""
-        if user_id not in self.user_history or len(self.user_history[user_id]) == 0:
+        # Get user history from the dataset (handles temporal splits correctly)
+        try:
+            hist_items = interaction.dataset.user_history_dict.get(user_id, [])
+            hist_items = [int(item) for item in hist_items if item < self.n_items]
+        except:
+            hist_items = []
+        
+        if len(hist_items) == 0:
             return torch.zeros(self.fasttext_dim).to(self.device)
         
-        hist_items = self.user_history[user_id]
         hist_embeddings = self.item_embeddings[hist_items]
         
         if self.aggregation == 'mean':
@@ -161,7 +161,7 @@ class FastText(GeneralRecommender):
         
         user_embeddings = []
         for u in user.cpu().numpy():
-            user_embeddings.append(self._aggregate_user_history(u))
+            user_embeddings.append(self._aggregate_user_history(u, interaction))
         user_embeddings = torch.stack(user_embeddings)
         
         item_embeddings = self.item_embeddings[item]
@@ -191,7 +191,7 @@ class FastText(GeneralRecommender):
         
         user_embeddings = []
         for u in user.cpu().numpy():
-            user_embeddings.append(self._aggregate_user_history(u))
+            user_embeddings.append(self._aggregate_user_history(u, interaction))
         user_embeddings = torch.stack(user_embeddings)
         
         if self.similarity == 'cosine':
