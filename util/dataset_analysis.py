@@ -165,43 +165,74 @@ def plot_interactions_over_time(df: pd.DataFrame,
     
     time_col = 'hour_mark' if granularity == 'hour' else 'day_mark'
     
-    # Plot interactions
-    ax.plot(agg_data[time_col], agg_data['count'], 
-           linewidth=2, color='#2E86AB', marker='o', markersize=4)
+    # Add day/night gradient background (only for hourly granularity)
+    if granularity == 'hour':
+        from matplotlib.colors import LinearSegmentedColormap
+        import matplotlib.patches as mpatches
+        
+        # Get the time range
+        time_min, time_max = agg_data[time_col].min(), agg_data[time_col].max()
+        y_min, y_max = 0, ax.get_ylim()[1]
+        
+        # Create gradients for each day in the time range
+        current_time = time_min
+        while current_time <= time_max:
+            day_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Night gradient: 0-6am (dark navy to lighter blue)
+            night_start = day_start
+            night_end = day_start + timedelta(hours=6)
+            if night_start < time_max and night_end > time_min:
+                # Create gradient from dark to light
+                for i in range(6):
+                    hour_start = day_start + timedelta(hours=i)
+                    hour_end = day_start + timedelta(hours=i+1)
+                    if hour_start < time_max and hour_end > time_min:
+                        # Gradient from dark navy (0am) to dawn blue (6am)
+                        alpha = 0.25 - (i * 0.035)  # 0.25 -> 0.04
+                        ax.axvspan(max(hour_start, time_min), min(hour_end, time_max),
+                                  alpha=alpha, color='#1a2332', zorder=0)
+            
+            # Day gradient: 6am-6pm (dawn to bright day to dusk)
+            for i in range(12):
+                hour_start = day_start + timedelta(hours=6+i)
+                hour_end = day_start + timedelta(hours=7+i)
+                if hour_start < time_max and hour_end > time_min:
+                    # Gradient from dawn blue -> bright yellow -> orange dusk
+                    if i < 3:  # 6am-9am: dawn (blue to yellow)
+                        color = '#87CEEB'  # Sky blue
+                        alpha = 0.08 + (i * 0.02)
+                    elif i < 9:  # 9am-3pm: day (bright yellow)
+                        color = '#FFD700'  # Golden yellow
+                        alpha = 0.15
+                    else:  # 3pm-6pm: afternoon (yellow to orange)
+                        color = '#FFA500'  # Orange
+                        alpha = 0.15 - ((i-9) * 0.02)
+                    ax.axvspan(max(hour_start, time_min), min(hour_end, time_max),
+                              alpha=alpha, color=color, zorder=0)
+            
+            # Evening/Night gradient: 6pm-midnight (dusk to dark night)
+            for i in range(6):
+                hour_start = day_start + timedelta(hours=18+i)
+                hour_end = day_start + timedelta(hours=19+i)
+                if hour_start < time_max and hour_end > time_min:
+                    # Gradient from orange dusk to dark navy
+                    alpha = 0.10 + (i * 0.025)  # 0.10 -> 0.235
+                    color = '#1a2332' if i > 2 else '#4a5a6a'
+                    ax.axvspan(max(hour_start, time_min), min(hour_end, time_max),
+                              alpha=alpha, color=color, zorder=0)
+            
+            current_time += timedelta(days=1)
     
-    # Overlay window boundaries if provided
-    if window_info:
-        colors = ['#F18F01', '#A23B72', '#06A77D', '#9B59B6']
-        for i, window in enumerate(window_info):
-            train_start = window.get('train_start_unit', window.get('start_unit'))
-            train_end = window.get('train_end_unit', train_start + window.get('train_units', 0))
-            test_start = window.get('test_start_unit', train_end)
-            test_end = window.get('end_unit')
-            
-            if granularity == 'hour':
-                train_start_dt = start_datetime + timedelta(hours=float(train_start or 0))
-                train_end_dt = start_datetime + timedelta(hours=float(train_end or 0))
-                test_start_dt = start_datetime + timedelta(hours=float(test_start or 0))
-                test_end_dt = start_datetime + timedelta(hours=float(test_end or 0))
-            else:
-                train_start_dt = start_datetime + timedelta(days=float(train_start or 0))
-                train_end_dt = start_datetime + timedelta(days=float(train_end or 0))
-                test_start_dt = start_datetime + timedelta(days=float(test_start or 0))
-                test_end_dt = start_datetime + timedelta(days=float(test_end or 0))
-            
-            color = colors[i % len(colors)]
-            
-            # Train region
-            ax.axvspan(train_start_dt, train_end_dt, alpha=0.15, color=color,  # type: ignore
-                      label=f'W{window["window_number"]} Train' if i < 3 else None)
-            # Test region
-            ax.axvspan(test_start_dt, test_end_dt, alpha=0.3, color=color,  # type: ignore
-                      label=f'W{window["window_number"]} Test' if i < 3 else None)
+    # Plot interactions on top
+    ax.plot(agg_data[time_col], agg_data['count'], 
+           linewidth=2.5, color='#2E86AB', marker='o', markersize=5, 
+           zorder=3, markerfacecolor='#2E86AB', markeredgecolor='white', markeredgewidth=1)
     
     ax.set_xlabel(xlabel, fontsize=12, fontweight='bold')
     ax.set_ylabel('Number of Interactions', fontsize=12, fontweight='bold')
     ax.set_title('Interaction Volume Over Time', fontsize=13, fontweight='bold')
-    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.grid(True, alpha=0.3, linestyle='--', zorder=2)
     
     # Format x-axis dates
     if granularity == 'hour':
@@ -210,9 +241,6 @@ def plot_interactions_over_time(df: pd.DataFrame,
     else:
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
-    
-    if window_info and len(window_info) <= 5:
-        ax.legend(loc='best', fontsize=9)
     
     return ax
 

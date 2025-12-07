@@ -133,13 +133,13 @@ def analyze_dataset_from_experiment(experiment_id: str,
     output_paths = []
     
     # 1. Interactions over time
-    fig1, ax1 = plt.subplots(figsize=figsize)
-    plot_interactions_over_time(df, granularity, start_timestamp, all_windows, ax=ax1)
+    # Don't pass ax parameter so the function can create its own layout with window tracks
+    plot_interactions_over_time(df, granularity, start_timestamp, all_windows)
     start_dt = datetime.fromtimestamp(start_timestamp)
-    fig1.suptitle(f"{dataset_name} - Interactions Over Time", fontsize=12, fontweight='bold')
+    plt.suptitle(f"{dataset_name} - Interactions Over Time", fontsize=12, fontweight='bold')
     output_path1 = output_dir / f"{experiment_id}_interactions_timeline.pdf"
     plt.savefig(output_path1, format='pdf', dpi=300, bbox_inches='tight')
-    plt.close(fig1)
+    plt.close()
     output_paths.append(output_path1)
     print(f"✓ Saved: {output_path1}")
     
