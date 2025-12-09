@@ -38,7 +38,8 @@ def analyze_dataset_from_experiment(experiment_id: str,
                                    dataset_path: str = 'datasets/atomic_files',
                                    output_dir: Optional[str] = None,
                                    start_timestamp: Optional[float] = None,
-                                   figsize: tuple = (12, 6)) -> Dict[str, Any]:
+                                   figsize: tuple = (12, 6),
+                                   log_scale: bool = False) -> Dict[str, Any]:
     """
     Generate comprehensive dataset analysis from experiment configuration.
     
@@ -49,6 +50,7 @@ def analyze_dataset_from_experiment(experiment_id: str,
         output_dir: Directory to save PDFs (default: plot/output/)
         start_timestamp: Optional start timestamp (uses first interaction if None)
         figsize: Figure size (width, height) for each plot
+        log_scale: If True, use log-log scale for distribution plots to reveal power-law patterns
         
     Returns:
         Dictionary with analysis results and statistics
@@ -173,8 +175,9 @@ def analyze_dataset_from_experiment(experiment_id: str,
     
     # 3. User/Item distributions
     fig3, (ax3_left, ax3_right) = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
-    plot_user_item_distributions(df, ax=(ax3_left, ax3_right))
-    fig3.suptitle(f"{dataset_name} - User Activity & Item Popularity", fontsize=12, fontweight='bold')
+    plot_user_item_distributions(df, ax=(ax3_left, ax3_right), log_scale=log_scale)
+    scale_suffix = " (Log-Log)" if log_scale else ""
+    fig3.suptitle(f"{dataset_name} - User Activity & Item Popularity{scale_suffix}", fontsize=12, fontweight='bold')
     output_path3 = output_dir / f"{experiment_id}_distributions.pdf"
     plt.savefig(output_path3, format='pdf', dpi=300, bbox_inches='tight')
     plt.close(fig3)
@@ -227,12 +230,15 @@ Examples:
   # Analyze dataset from temporal experiment
   python -m plot.dataset_analysis --experiment-id exp_tfidf_temporal_36h
   
+  # Use log-log scale to reveal power-law distributions
+  python -m plot.dataset_analysis --experiment-id exp001 --log-scale
+  
   # Specify custom start timestamp (Unix timestamp)
-  python -m plot.dataset_analysis --experiment-id exp001 \\
+  python -m plot.dataset_analysis --experiment-id exp001 \
       --start-timestamp 1573463158
   
   # Custom output directory
-  python -m plot.dataset_analysis --experiment-id exp001 \\
+  python -m plot.dataset_analysis --experiment-id exp001 \
       --output-dir my_plots/
         """
     )
@@ -249,6 +255,8 @@ Examples:
                        help='Start timestamp (Unix timestamp). If not provided, uses first interaction.')
     parser.add_argument('--figsize', nargs=2, type=float, default=[12, 6],
                        help='Figure size (width height) for each plot')
+    parser.add_argument('--log-scale', action='store_true',
+                       help='Use log-log scale for distribution plots to reveal power-law patterns')
     
     args = parser.parse_args()
     
@@ -259,7 +267,8 @@ Examples:
             dataset_path=args.dataset_path,
             output_dir=args.output_dir,
             start_timestamp=args.start_timestamp,
-            figsize=tuple(args.figsize)
+            figsize=tuple(args.figsize),
+            log_scale=args.log_scale
         )
     except FileNotFoundError as e:
         print(f"Error: {e}")

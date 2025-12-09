@@ -292,13 +292,16 @@ def plot_time_of_day_pattern(df: pd.DataFrame,
 
 
 def plot_user_item_distributions(df: pd.DataFrame,
-                                 ax: Optional[Tuple[Axes, Axes]] = None) -> Tuple[Axes, Axes]:
+                                 ax: Optional[Tuple[Axes, Axes]] = None,
+                                 log_scale: bool = False) -> Tuple[Axes, Axes]:
     """
     Plot user activity and item popularity distributions.
     
     Args:
         df: DataFrame with interaction data
         ax: Optional tuple of (user_ax, item_ax)
+        log_scale: If True, use log-log scale to visualize power-law distributions.
+                  This reveals the long tail by making both axes logarithmic.
         
     Returns:
         Tuple of matplotlib axes objects
@@ -310,11 +313,25 @@ def plot_user_item_distributions(df: pd.DataFrame,
     
     # User activity distribution
     user_interactions = df.groupby('user_id').size()
-    ax1.hist(user_interactions, bins=50, color='#2E86AB', alpha=0.7, edgecolor='black')
-    ax1.set_xlabel('Interactions per User', fontsize=11, fontweight='bold')
-    ax1.set_ylabel('Number of Users', fontsize=11, fontweight='bold')
-    ax1.set_title('User Activity Distribution', fontsize=12, fontweight='bold')
-    ax1.grid(True, alpha=0.3, linestyle='--', axis='y')
+    
+    if log_scale:
+        # Log-log histogram to visualize power-law distribution
+        bins = np.logspace(np.log10(user_interactions.min()), 
+                          np.log10(user_interactions.max()), 50)
+        ax1.hist(user_interactions, bins=bins, color='#2E86AB', alpha=0.7, edgecolor='black')
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        ax1.set_xlabel('Interactions per User (log scale)', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Number of Users (log scale)', fontsize=11, fontweight='bold')
+        ax1.set_title('User Activity Distribution (Log-Log)', fontsize=12, fontweight='bold')
+    else:
+        # Linear histogram
+        ax1.hist(user_interactions, bins=50, color='#2E86AB', alpha=0.7, edgecolor='black')
+        ax1.set_xlabel('Interactions per User', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Number of Users', fontsize=11, fontweight='bold')
+        ax1.set_title('User Activity Distribution', fontsize=12, fontweight='bold')
+    
+    ax1.grid(True, alpha=0.3, linestyle='--', axis='both')
     
     # Add statistics text
     stats_text = f"Mean: {user_interactions.mean():.1f}\nMedian: {user_interactions.median():.1f}\nStd: {user_interactions.std():.1f}"
@@ -325,11 +342,25 @@ def plot_user_item_distributions(df: pd.DataFrame,
     
     # Item popularity distribution
     item_interactions = df.groupby('item_id').size()
-    ax2.hist(item_interactions, bins=50, color='#F18F01', alpha=0.7, edgecolor='black')
-    ax2.set_xlabel('Interactions per Item', fontsize=11, fontweight='bold')
-    ax2.set_ylabel('Number of Items', fontsize=11, fontweight='bold')
-    ax2.set_title('Item Popularity Distribution', fontsize=12, fontweight='bold')
-    ax2.grid(True, alpha=0.3, linestyle='--', axis='y')
+    
+    if log_scale:
+        # Log-log histogram to visualize power-law distribution
+        bins = np.logspace(np.log10(item_interactions.min()), 
+                          np.log10(item_interactions.max()), 50)
+        ax2.hist(item_interactions, bins=bins, color='#F18F01', alpha=0.7, edgecolor='black')
+        ax2.set_xscale('log')
+        ax2.set_yscale('log')
+        ax2.set_xlabel('Interactions per Item (log scale)', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Number of Items (log scale)', fontsize=11, fontweight='bold')
+        ax2.set_title('Item Popularity Distribution (Log-Log)', fontsize=12, fontweight='bold')
+    else:
+        # Linear histogram
+        ax2.hist(item_interactions, bins=50, color='#F18F01', alpha=0.7, edgecolor='black')
+        ax2.set_xlabel('Interactions per Item', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Number of Items', fontsize=11, fontweight='bold')
+        ax2.set_title('Item Popularity Distribution', fontsize=12, fontweight='bold')
+    
+    ax2.grid(True, alpha=0.3, linestyle='--', axis='both')
     
     # Add statistics text
     stats_text = f"Mean: {item_interactions.mean():.1f}\nMedian: {item_interactions.median():.1f}\nStd: {item_interactions.std():.1f}"
