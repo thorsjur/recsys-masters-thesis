@@ -1,3 +1,4 @@
+import gensim
 import torch
 import numpy as np
 from recbole.model.abstract_recommender import GeneralRecommender
@@ -55,15 +56,34 @@ class FastText(GeneralRecommender):
         if os.path.exists(fasttext_path):
             from gensim.models.fasttext import load_facebook_vectors
             self.logger.info(f"Loading FastText model from {fasttext_path}")
-            self.fasttext_model = load_facebook_vectors(fasttext_path)
+            self.fasttext_vectors = load_facebook_vectors(fasttext_path)
             self.logger.info("FastText model loaded")
         else:
+            from gensim.models import KeyedVectors
+
             self.logger.info("Custom FastText model not found...")
             self.logger.info("Using fasttext-wiki-news-subwords-300 (650MB download)")
-            self.fasttext_model = api.load('fasttext-wiki-news-subwords-300')
-            self.logger.info("FastText model loaded from gensim")
+
+            default_fasttext_path = os.path.expanduser('~/fasttext/default_fasttext_wiki_news_subwords_300')
+            kv_path = os.path.join(os.path.dirname(default_fasttext_path), "fasttext.kv.vectors.npy")
+
+            if os.path.exists(kv_path):
+                self.logger.info(f"Loading cached FastText vectors from {kv_path}")
+                self.fasttext_vectors = KeyedVectors.load(kv_path, mmap="r")
+            else:
+                self.logger.info("Cached vectors not found; loading via gensim api")
+                self.fasttext_vectors = api.load("fasttext-wiki-news-subwords-300")
+
+                assert isinstance(
+                    self.fasttext_vectors, gensim.models.keyedvectors.KeyedVectors
+                ), f"Loaded vectors must be of type KeyedVectors, got {type(self.fasttext_vectors)}"
+
+                os.makedirs(default_fasttext_path, exist_ok=True)
+                self.fasttext_vectors.save(kv_path)
         
         item_embeddings = []
+
+        assert isinstance(self.fasttext_vectors, gensim.models.keyedvectors.KeyedVectors), f"FastText vectors must be KeyedVectors instance, got {type(self.fasttext_vectors)}"
         
         for idx in range(self.n_items):
             text_tokens = self._get_item_text_tokens(dataset, idx)
@@ -73,8 +93,8 @@ class FastText(GeneralRecommender):
             else:
                 token_embeddings = []
                 for token in text_tokens:
-                    if token in self.fasttext_model:
-                        token_embeddings.append(self.fasttext_model[token])
+                    if self.fasttext_vectors.has_index_for(token):
+                        token_embeddings.append(self.fasttext_vectors.get_vector(token))
                 
                 if token_embeddings:
                     embedding = np.mean(token_embeddings, axis=0)
@@ -96,14 +116,11 @@ class FastText(GeneralRecommender):
             if torch.is_tensor(title):
                 title = title.cpu().numpy()
             
-            if isinstance(title, np.ndarray) and title.ndim > 0:
-                for token_id in title:
-                    token_id = int(token_id)
-                    if token_id != 0:
-                        token = dataset.id2token(self.title_field, [token_id])[0]
-                        tokens.append(token)
-            elif isinstance(title, str):
-                tokens.extend(title.split())
+            for token_id in title:
+                token_id = int(token_id)
+                if token_id != 0:
+                    token = dataset.id2token(self.title_field, [token_id])[0]
+                    tokens.append(token)
         
         if self.use_abstract and self.abstract_field in dataset.item_feat:
             abstract = dataset.item_feat[self.abstract_field][idx]
@@ -111,25 +128,19 @@ class FastText(GeneralRecommender):
             if torch.is_tensor(abstract):
                 abstract = abstract.cpu().numpy()
             
-            if isinstance(abstract, np.ndarray) and abstract.ndim > 0:
-                for token_id in abstract:
-                    token_id = int(token_id)
-                    if token_id != 0:
-                        token = dataset.id2token(self.abstract_field, [token_id])[0]
-                        tokens.append(token)
-            elif isinstance(abstract, str):
-                tokens.extend(abstract.split())
+            for token_id in abstract:
+                token_id = int(token_id)
+                if token_id != 0:
+                    token = dataset.id2token(self.abstract_field, [token_id])[0]
+                    tokens.append(token)
         
         return tokens
     
     def _aggregate_user_history(self, user_id, interaction):
         """Aggregate user's historical item embeddings into user representation."""
         # Get user history from the dataset (handles temporal splits correctly)
-        try:
-            hist_items = interaction.dataset.user_history_dict.get(user_id, [])
-            hist_items = [int(item) for item in hist_items if item < self.n_items]
-        except:
-            hist_items = []
+        hist_items = interaction.dataset.user_history_dict.get(user_id, [])
+        hist_items = [int(item) for item in hist_items if item < self.n_items]
         
         if len(hist_items) == 0:
             return torch.zeros(self.fasttext_dim).to(self.device)
@@ -148,7 +159,7 @@ class FastText(GeneralRecommender):
         return user_emb
     
     def forward(self, interaction):
-        """Forward pass for training/evaluation."""
+        """Forward pass for evaluation."""
         user = interaction[self.USER_ID]
         item = interaction[self.ITEM_ID]
         
@@ -171,7 +182,7 @@ class FastText(GeneralRecommender):
         return scores
     
     def calculate_loss(self, interaction):
-        """Calculate loss (not used for non-trainable model)."""
+        """No training; return zero loss."""
         return torch.tensor(0.0).to(self.device)
     
     def predict(self, interaction):

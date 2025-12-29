@@ -1,16 +1,16 @@
-"""
-Convenience wrapper for running TF-IDF model.
-"""
 import sys
+sys.path.insert(0, '.')
+
 from run_recbole import main as run_recbole
 
 if __name__ == "__main__":
-    sys.argv.insert(1, '--model')
-    sys.argv.insert(2, 'TFIDF')
-    
-    if '--config' not in sys.argv:
-        dataset_idx = sys.argv.index('--dataset') + 1 if '--dataset' in sys.argv else None
-        dataset = sys.argv[dataset_idx] if dataset_idx else 'mind_small'
-        sys.argv.extend(['--config', f'configs/{dataset}.yaml', 'configs/tfidf.yaml'])
+
+    sys.argv = [
+        'run_tfidf.py',
+        '--model', 'TFIDF',
+        '--dataset', 'mind_small',
+        '--config', 'configs/mind_small.yaml', 'configs/tfidf.yaml'
+    ] + sys.argv[1:]
+
     
     run_recbole()

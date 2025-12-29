@@ -1,15 +1,10 @@
-"""
-Temporal stability visualization for recommendation models.
-
-This module provides functions to visualize how model performance changes
-across temporal windows, helping identify temporal drift and stability patterns.
-"""
-
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
 import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend to avoid Qt warnings
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -259,24 +254,6 @@ def plot_temporal_stability(experiment_id: str | List[str],
 def main():
     parser = argparse.ArgumentParser(
         description='Visualize temporal stability of recommendation models',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Plot single experiment with default metrics
-  python -m plot.temporal_stability --experiment-id exp_tfidf_temporal_36h
-  
-  # Compare multiple experiments (must have same window config)
-  python -m plot.temporal_stability --experiment-id exp_tfidf_temporal_36h exp_fasttext_temporal_36h
-  
-  # Custom metrics and output path
-  python -m plot.temporal_stability --experiment-id exp001 \\
-      --metrics ndcg@10 recall@20 \\
-      --output my_plot.pdf
-  
-  # Show individual run points with std bands
-  python -m plot.temporal_stability --experiment-id exp001 \\
-      --show-runs --show-std
-        """
     )
     
     parser.add_argument('--experiment-id', nargs='+', required=True,

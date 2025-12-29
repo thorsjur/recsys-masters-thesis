@@ -1,13 +1,9 @@
-"""
-Convenience wrapper for running FastText model.
-"""
 import sys
 sys.path.insert(0, '.')
 
 from run_recbole import main as run_recbole
 
 if __name__ == "__main__":
-    import sys
     sys.argv = [
         'run_fasttext.py',
         '--model', 'FastText',
