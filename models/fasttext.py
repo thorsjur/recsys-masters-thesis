@@ -1,5 +1,6 @@
 import gensim
 import torch
+import torch.nn.functional as F
 import numpy as np
 from recbole.model.abstract_recommender import GeneralRecommender
 from recbole.utils import InputType
@@ -45,6 +46,7 @@ class FastText(GeneralRecommender):
         self.dummy_param = torch.nn.Parameter(torch.zeros(1))
         
         self._build_item_embeddings(dataset)
+        self._build_user_embeddings(dataset)
     
     def _build_item_embeddings(self, dataset):
         """Build FastText embeddings for all items."""
@@ -91,10 +93,10 @@ class FastText(GeneralRecommender):
             if not text_tokens:
                 embedding = np.zeros(self.fasttext_dim)
             else:
-                token_embeddings = []
-                for token in text_tokens:
-                    if self.fasttext_vectors.has_index_for(token):
-                        token_embeddings.append(self.fasttext_vectors.get_vector(token))
+                token_embeddings = [
+                    self.fasttext_vectors.get_vector(token)
+                    for token in text_tokens
+                ]
                 
                 if token_embeddings:
                     embedding = np.mean(token_embeddings, axis=0)
@@ -104,7 +106,50 @@ class FastText(GeneralRecommender):
             item_embeddings.append(embedding)
         
         self.item_embeddings = torch.FloatTensor(np.array(item_embeddings)).to(self.device)
+        if self.similarity == 'cosine':
+            self.item_embeddings = F.normalize(self.item_embeddings, p=2, dim=1)
         self.logger.info(f"Built item embeddings: {self.item_embeddings.shape}")
+
+    def _build_user_embeddings(self, dataset):
+        inter = dataset.inter_feat
+
+        user_ids = inter[self.USER_ID].numpy()
+        item_ids = inter[self.ITEM_ID].numpy()
+
+        n_users = dataset.user_num
+
+        user_hist_items = [[] for _ in range(n_users)]
+        for u, i in zip(user_ids, item_ids):
+            user_hist_items[u].append(i)
+
+        user_emb_list = []
+
+        for u in range(n_users):
+            hist = user_hist_items[u]
+            if not hist:
+                user_emb_list.append(np.zeros(self.fasttext_dim, dtype=np.float32))
+                continue
+
+            hist_idx = torch.LongTensor(hist)
+            hist_emb = self.item_embeddings.cpu()[hist_idx]
+
+            if self.aggregation == 'mean':
+                u_emb = hist_emb.mean(dim=0)
+            elif self.aggregation == 'sum':
+                u_emb = hist_emb.sum(dim=0)
+            elif self.aggregation == 'max':
+                u_emb = hist_emb.max(dim=0)[0]
+            else:
+                raise ValueError(f"Unknown aggregation method: {self.aggregation}")
+
+            user_emb_list.append(u_emb.numpy())
+
+        self.user_embeddings = torch.from_numpy(np.stack(user_emb_list, axis=0)).to(self.device)
+        if self.similarity == 'cosine':
+            self.user_embeddings = F.normalize(self.user_embeddings, p=2, dim=1)
+        self.logger.info(f"Built user embeddings: {self.user_embeddings.shape}")
+
+
     
     def _get_item_text_tokens(self, dataset, idx):
         """Extract text tokens from item features."""
@@ -136,75 +181,29 @@ class FastText(GeneralRecommender):
         
         return tokens
     
-    def _aggregate_user_history(self, user_id, interaction):
-        """Aggregate user's historical item embeddings into user representation."""
-        # Get user history from the dataset (handles temporal splits correctly)
-        hist_items = interaction.dataset.user_history_dict.get(user_id, [])
-        hist_items = [int(item) for item in hist_items if item < self.n_items]
-        
-        if len(hist_items) == 0:
-            return torch.zeros(self.fasttext_dim).to(self.device)
-        
-        hist_embeddings = self.item_embeddings[hist_items]
-        
-        if self.aggregation == 'mean':
-            user_emb = torch.mean(hist_embeddings, dim=0)
-        elif self.aggregation == 'sum':
-            user_emb = torch.sum(hist_embeddings, dim=0)
-        elif self.aggregation == 'max':
-            user_emb = torch.max(hist_embeddings, dim=0)[0]
-        else:
-            raise ValueError(f"Unknown aggregation method: {self.aggregation}")
-        
-        return user_emb
-    
     def forward(self, interaction):
         """Forward pass for evaluation."""
         user = interaction[self.USER_ID]
         item = interaction[self.ITEM_ID]
         
-        user_embeddings = []
-        for u in user.cpu().numpy():
-            user_embeddings.append(self._aggregate_user_history(u, interaction))
-        user_embeddings = torch.stack(user_embeddings)
-        
+        user_embeddings = self.user_embeddings[user]
         item_embeddings = self.item_embeddings[item]
         
-        if self.similarity == 'cosine':
-            user_norm = torch.nn.functional.normalize(user_embeddings, p=2, dim=1)
-            item_norm = torch.nn.functional.normalize(item_embeddings, p=2, dim=1)
-            scores = torch.sum(user_norm * item_norm, dim=1)
-        elif self.similarity == 'dot':
-            scores = torch.sum(user_embeddings * item_embeddings, dim=1)
-        else:
-            raise ValueError(f"Unknown similarity function: {self.similarity}")
-        
-        return scores
+        return torch.sum(user_embeddings * item_embeddings, dim=1)
     
     def calculate_loss(self, interaction):
         """No training; return zero loss."""
-        return torch.tensor(0.0).to(self.device)
+        return self.dummy_param.new_zeros()
     
+    @torch.no_grad()
     def predict(self, interaction):
         """Predict scores for user-item pairs."""
         return self.forward(interaction)
     
+    @torch.no_grad()
     def full_sort_predict(self, interaction):
         """Predict scores for all items for given users."""
         user = interaction[self.USER_ID]
+        user_embeddings = self.user_embeddings[user]
         
-        user_embeddings = []
-        for u in user.cpu().numpy():
-            user_embeddings.append(self._aggregate_user_history(u, interaction))
-        user_embeddings = torch.stack(user_embeddings)
-        
-        if self.similarity == 'cosine':
-            user_norm = torch.nn.functional.normalize(user_embeddings, p=2, dim=1)
-            item_norm = torch.nn.functional.normalize(self.item_embeddings, p=2, dim=1)
-            scores = torch.matmul(user_norm, item_norm.t())
-        elif self.similarity == 'dot':
-            scores = torch.matmul(user_embeddings, self.item_embeddings.t())
-        else:
-            raise ValueError(f"Unknown similarity function: {self.similarity}")
-        
-        return scores
+        return user_embeddings @ self.item_embeddings.t()
