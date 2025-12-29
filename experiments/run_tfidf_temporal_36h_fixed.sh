@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-EXPERIMENT_ID="exp_fasttext_temporal_36h_fixed"
-DESCRIPTION="FastText temporal stability with 36h train, 12h test, 12h stride across 144h MIND dataset - FIXED"
-MODEL="FastText"
+EXPERIMENT_ID="exp_tfidf_temporal_36h_fixed"
+DESCRIPTION="TFIDF temporal stability with 36h train, 12h test, 12h stride across 144h MIND dataset - FIXED"
+MODEL="TFIDF"
 DATASET="mind_small"
 WINDOW_SIZE=48
 WINDOW_RATIO="36:12"

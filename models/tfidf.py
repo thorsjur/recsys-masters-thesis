@@ -9,8 +9,6 @@ from recbole.utils import InputType
 
 
 class TFIDF(GeneralRecommender):
-    """TF-IDF baseline for content-based recommendation."""
-    
     input_type = InputType.POINTWISE
 
     def __init__(self, config, dataset):
@@ -26,6 +24,7 @@ class TFIDF(GeneralRecommender):
         self.dummy_param = torch.nn.Parameter(torch.zeros(1))
         
         self._build_tfidf_matrix(dataset)
+        self._build_user_history_dict(dataset)
         
     def _build_tfidf_matrix(self, dataset):
         """Build TF-IDF matrix from item features."""
@@ -44,12 +43,8 @@ class TFIDF(GeneralRecommender):
                 if torch.is_tensor(title):
                     title = title.cpu().numpy()
                 
-                if isinstance(title, np.ndarray) and title.ndim > 0:
-                    title_tokens = [dataset.id2token(self.title_field, [int(t)])[0] for t in title if int(t) != 0]
-                    title_text = " ".join(title_tokens)
-                else:
-                    title_val = int(title) if hasattr(title, '__int__') else title
-                    title_text = dataset.id2token(self.title_field, [title_val])[0] if title_val != 0 else ""
+                title_tokens = [dataset.id2token(self.title_field, [int(t)])[0] for t in title if int(t) != 0]
+                title_text = " ".join(title_tokens)
                 text_parts.append(str(title_text))
             
             if self.use_abstract and self.abstract_field in item_feat:
@@ -57,12 +52,8 @@ class TFIDF(GeneralRecommender):
                 if torch.is_tensor(abstract):
                     abstract = abstract.cpu().numpy()
                 
-                if isinstance(abstract, np.ndarray) and abstract.ndim > 0:
-                    abstract_tokens = [dataset.id2token(self.abstract_field, [int(t)])[0] for t in abstract if int(t) != 0]
-                    abstract_text = " ".join(abstract_tokens)
-                else:
-                    abstract_val = int(abstract) if hasattr(abstract, '__int__') else abstract
-                    abstract_text = dataset.id2token(self.abstract_field, [abstract_val])[0] if abstract_val != 0 else ""
+                abstract_tokens = [dataset.id2token(self.abstract_field, [int(t)])[0] for t in abstract if int(t) != 0]
+                abstract_text = " ".join(abstract_tokens)
                 text_parts.append(str(abstract_text))
             
             item_texts.append(" ".join(text_parts) if text_parts else "")
@@ -77,42 +68,55 @@ class TFIDF(GeneralRecommender):
         pass
 
     def calculate_loss(self, interaction):
-        """TF-IDF doesn't require training, return zero loss."""
+        """Non-trainable model, so return zero loss."""
         return torch.zeros(1, device=self.device, requires_grad=True)
 
+    @torch.no_grad()
     def predict(self, interaction):
         """Predict scores based on user history and item similarity."""
         user = interaction[self.USER_ID]
         item = interaction[self.ITEM_ID]
         
-        scores = torch.zeros(len(user), device=self.device)
+        batch_size = user.size(0)
+
+        scores = torch.zeros(batch_size, device=self.device)
         
         for idx, (u, i) in enumerate(zip(user.cpu().numpy(), item.cpu().numpy())):
-            user_history = self._get_user_history(u, interaction)
+            user_history = self.user_history_dict.get(u, [])
             if len(user_history) > 0:
                 sim_scores = self.item_similarity_tensor[i, user_history]
                 scores[idx] = sim_scores.mean()
         
         return scores
 
+    @torch.no_grad()
     def full_sort_predict(self, interaction):
-        """Predict scores for all items based on user history."""
+        """Predict scores for all items in interaction batch, based on user history."""
         user = interaction[self.USER_ID]
         
         scores = torch.zeros(len(user), self.n_items, device=self.device)
         
         for idx, u in enumerate(user.cpu().numpy()):
-            user_history = self._get_user_history(u, interaction)
+            user_history = self.user_history_dict.get(u, [])
             if len(user_history) > 0:
                 sim_matrix = self.item_similarity_tensor[:, user_history]
                 scores[idx] = sim_matrix.mean(dim=1)
         
         return scores
     
-    def _get_user_history(self, user_id, interaction):
-        """Get user's historical items from the dataset."""
-        try:
-            history = interaction.dataset.user_history_dict.get(user_id, [])
-            return [int(item) for item in history if item < self.n_items]
-        except:
-            return []
+    def _build_user_history_dict(self, dataset):
+        """Build a dictionary of user historical interactions."""
+        self.user_history_dict = {}
+        inters = dataset.inter_feat
+
+        user_ids = inters[self.USER_ID]
+        item_ids = inters[self.ITEM_ID]
+
+        user_item_interactions = zip(user_ids, item_ids)
+
+        for user_id, item_id in user_item_interactions:
+            
+            if user_id not in self.user_history_dict:
+                self.user_history_dict[user_id] = []
+
+            self.user_history_dict[user_id].append(item_id)
