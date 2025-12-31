@@ -108,6 +108,9 @@ class TFIDF(GeneralRecommender):
         """Build a dictionary of user historical interactions."""
         self.user_history_dict = {}
         inters = dataset.inter_feat
+        
+        mask = inters["label"] > 0
+        inters = inters[mask]
 
         user_ids = inters[self.USER_ID]
         item_ids = inters[self.ITEM_ID]

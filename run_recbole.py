@@ -47,30 +47,6 @@ def get_model_class(model_name):
         except Exception as e:
             pass
     
-    # Fallback to generic imports
-    try:
-        module = import_module('recbole.model.general_recommender')
-        return getattr(module, model_name)
-    except (ImportError, AttributeError):
-        pass
-    
-    try:
-        module = import_module('recbole.model.sequential_recommender')
-        return getattr(module, model_name)
-    except (ImportError, AttributeError):
-        pass
-    
-    try:
-        module = import_module('recbole.model.context_aware_recommender')
-        return getattr(module, model_name)
-    except (ImportError, AttributeError):
-        pass
-    
-    try:
-        module = import_module('recbole.model.knowledge_aware_recommender')
-        return getattr(module, model_name)
-    except (ImportError, AttributeError):
-        pass
     
     raise ImportError(f"Could not find model '{model_name}' in custom models or RecBole")
 
@@ -230,7 +206,7 @@ def main():
 
     assert isinstance(config['epochs'], int) and config['epochs'] >= 0, "Number of epochs must be a non-negative integer" # type: ignore
     
-    if  config['epochs'] > 0: # type: ignore
+    if config['epochs'] > 0: # type: ignore
         best_valid_score, best_valid_result = trainer.fit(
             train_data, valid_data, show_progress=True
         )

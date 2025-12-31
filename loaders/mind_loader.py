@@ -32,7 +32,7 @@ class MINDDataLoader(AbstractDataLoader):
             sep='\t',
             header=None,
             names=['impression_id', 'user_id', 'time_str', 'history', 'impressions'],
-            usecols=['impression_id', 'user_id', 'time_str', 'impressions'],
+            usecols=['impression_id', 'user_id', 'time_str', 'history', 'impressions'],
             chunksize=CHUNK_SIZE
         )
 
@@ -40,21 +40,25 @@ class MINDDataLoader(AbstractDataLoader):
         
         for chunk in tqdm(chunk_iterator, desc="Processing chunks"):
             
-            # A. Convert time string to unix timestamp
+            # Convert time string to unix timestamp
             chunk['timestamp'] = pd.to_datetime(chunk['time_str'], format="%m/%d/%Y %I:%M:%S %p")
             chunk['timestamp'] = chunk['timestamp'].astype(np.int64) // 10**9
+
+            chunk['history'] = chunk['history'].fillna('')
+            chunk['history'] = chunk['history'].apply(
+                lambda x: x.split(' ') if x != '' else []
+            )
 
             chunk['impressions'] = chunk['impressions'].str.split(' ')
             df_exploded_chunk = chunk.explode('impressions').copy()
             
-            # C. Split "N123-1" into "N123" and "1"
+            # Split "N123-1" into "N123" and "1"
             split_data = df_exploded_chunk['impressions'].str.split('-', expand=True)
             
             df_exploded_chunk['item_id'] = split_data[0]
             df_exploded_chunk['label'] = split_data[1].astype(float)
             
-            # D. Final selection and append
-            df_final_chunk = df_exploded_chunk[['user_id', 'item_id', 'timestamp', 'label', 'impression_id']]
+            df_final_chunk = df_exploded_chunk[['user_id', 'item_id', 'timestamp', 'label', 'impression_id', 'history']].reset_index(drop=True)
             all_interactions.append(df_final_chunk)
             
         self.df_inter = pd.concat(all_interactions, ignore_index=True)

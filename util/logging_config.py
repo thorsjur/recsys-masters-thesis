@@ -16,14 +16,12 @@ class PrintLogger:
         self.original_stream = original_stream
         
     def write(self, message):
-        # Let tqdm progress bars write directly to original stream
         if message and ('\r' in message or message.startswith('\r')):
             if self.original_stream:
                 self.original_stream.write(message)
                 self.original_stream.flush()
             return
         
-        # Log regular messages (this will appear in console via logger handlers)
         if message.strip():
             self.logger.log(self.level, message.strip())
     

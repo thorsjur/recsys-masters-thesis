@@ -95,7 +95,7 @@ class FastText(GeneralRecommender):
             else:
                 token_embeddings = [
                     self.fasttext_vectors.get_vector(token)
-                    for token in text_tokens
+                    for token in text_tokens if token in self.fasttext_vectors
                 ]
                 
                 if token_embeddings:
@@ -112,6 +112,8 @@ class FastText(GeneralRecommender):
 
     def _build_user_embeddings(self, dataset):
         inter = dataset.inter_feat
+        mask = inter["label"] > 0
+        inter = inter[mask]
 
         user_ids = inter[self.USER_ID].numpy()
         item_ids = inter[self.ITEM_ID].numpy()
