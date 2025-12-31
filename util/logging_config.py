@@ -9,7 +9,7 @@ _original_stdout = sys.stdout
 _original_stderr = sys.stderr
 
 class PrintLogger:
-    """Redirect print statements to logging while preserving tqdm output."""
+    """Redirect print statements to logging."""
     def __init__(self, logger, level=logging.INFO, original_stream=None):
         self.logger = logger
         self.level = level
