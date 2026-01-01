@@ -5,5 +5,7 @@ bert_batch_size: 32
 bert_use_cache: True
 bert_cache_dir: ~/.cache/bert
 
+aggregation: attention
+
 # Non-trainable model
 epochs: 0

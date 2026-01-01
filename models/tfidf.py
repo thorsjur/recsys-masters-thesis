@@ -2,10 +2,10 @@ import torch
 from sklearn.feature_extraction.text import TfidfVectorizer
 import scipy.sparse as sp
 
-from models.non_train_base_model import NonTrainableNewsEmbeddingRecommender
+from models.non_train_base_model import NewsEmbeddingRecommender
 
 
-class TFIDF(NonTrainableNewsEmbeddingRecommender):
+class TFIDF(NewsEmbeddingRecommender):
     """
     TF-IDF news recommender using "embeddings" derived from item text.:
     """

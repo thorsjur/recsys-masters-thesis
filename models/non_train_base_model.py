@@ -11,7 +11,7 @@ from recbole.model.abstract_recommender import GeneralRecommender
 from recbole.utils import InputType
 
 
-class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
+class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
     input_type = InputType.POINTWISE
 
@@ -25,9 +25,7 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
         self.n_users = dataset.user_num
 
         self.title_field = config["title_field"] if "title_field" in config else "title"
-        self.abstract_field = (
-            config["abstract_field"] if "abstract_field" in config else "abstract"
-        )
+        self.abstract_field = config["abstract_field"] if "abstract_field" in config else "abstract"
         self.use_abstract = config["use_abstract"] if "use_abstract" in config else True
 
         self.aggregation = config["aggregation"] if "aggregation" in config else "mean"
@@ -39,12 +37,8 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
         self._build_item_embeddings(dataset)
         self._build_user_embeddings(dataset)
 
-        assert hasattr(
-            self, "item_embeddings"
-        ), "_build_item_embeddings() must set self.item_embeddings"
-        assert hasattr(
-            self, "user_embeddings"
-        ), "_build_user_embeddings() must set self.user_embeddings"
+        assert hasattr(self, "item_embeddings"), "_build_item_embeddings() must set self.item_embeddings"
+        assert hasattr(self, "user_embeddings"), "_build_user_embeddings() must set self.user_embeddings"
 
         if self.item_embeddings.device != torch.device(self.device):
             self.item_embeddings = self.item_embeddings.to(self.device)
@@ -78,7 +72,11 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
         return {u: [i for i in item_ids[user_ids == u]] for u in user_ids}
 
     def _aggregate_history(self, hist_emb: torch.Tensor) -> torch.Tensor:
-        if self.aggregation == "mean":
+        
+        # Attention-based aggregation is handled separately during prediction,
+        # and thus the user-embeddings are not really used in that case.
+        # For simplicity, we just use mean aggregation here.
+        if self.aggregation == "mean" or self.aggregation == "attention":
             return hist_emb.mean(dim=0)
         if self.aggregation == "sum":
             return hist_emb.sum(dim=0)
@@ -97,14 +95,25 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
         user = interaction[self.USER_ID]
         item = interaction[self.ITEM_ID]
 
+        if self.aggregation == "attention":
+            inters = zip(user.tolist(), item.tolist())
+            scores = [self._attention_score_single(u_id, i_id) for u_id, i_id in inters]
+
+            return torch.stack(scores)
+        
         u = self.user_embeddings[user]
         v = self.item_embeddings[item]
 
         return torch.sum(u * v, dim=1)
+        
 
     @torch.no_grad()
     def full_sort_predict(self, interaction):
+        if self.aggregation == "attention":
+            raise NotImplementedError("Full sort prediction is not supported with attention-based aggregation.")
+
         user = interaction[self.USER_ID]
+
         u = self.user_embeddings[user]
         return u @ self.item_embeddings.t()
 
@@ -113,15 +122,13 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
         raise NotImplementedError
 
     def _build_user_embeddings(self, dataset):
-        user_hist_items = self._build_user_hist_items(dataset)
-
+        self.user_hist_items = self._build_user_hist_items(dataset)
+        
         dim = int(self.item_embeddings.shape[1])
-        user_emb = torch.zeros(
-            (self.n_users, dim), dtype=torch.float32, device=self.device
-        )
+        user_emb = torch.zeros((self.n_users, dim), dtype=torch.float32, device=self.device)
 
         for u in range(self.n_users):
-            hist = user_hist_items.get(u, [])
+            hist = self.user_hist_items.get(u, [])
             if not hist:
                 continue
 
@@ -130,9 +137,7 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
             user_emb[u] = self._aggregate_history(hist_emb)
 
         self.user_embeddings = user_emb
-        self.logger.info(
-            f"TFIDF built user embeddings: shape={self.user_embeddings.shape}"
-        )
+        self.logger.info(f"TFIDF built user embeddings: shape={self.user_embeddings.shape}")
 
     def _get_item_text_tokens(self, dataset, item_idx: int) -> List[str]:
         assert dataset.item_feat is not None, "Dataset must have item features."
@@ -140,25 +145,17 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
         item_feat = dataset.item_feat
         tokens: List[str] = []
 
-        tokens.extend(
-            self._get_tokens_from_field(dataset, item_feat, self.title_field, item_idx)
-        )
+        tokens.extend(self._get_tokens_from_field(dataset, item_feat, self.title_field, item_idx))
 
         if self.use_abstract:
-            tokens.extend(
-                self._get_tokens_from_field(
-                    dataset, item_feat, self.abstract_field, item_idx
-                )
-            )
+            tokens.extend(self._get_tokens_from_field(dataset, item_feat, self.abstract_field, item_idx))
 
         return tokens
 
     def _get_item_text(self, dataset, item_idx: int) -> str:
         return " ".join(self._get_item_text_tokens(dataset, item_idx))
 
-    def _get_tokens_from_field(
-        self, dataset, item_feat, field: str, item_idx: int
-    ) -> List[str]:
+    def _get_tokens_from_field(self, dataset, item_feat, field: str, item_idx: int) -> List[str]:
         if field not in item_feat:
             return []
 
@@ -168,3 +165,20 @@ class NonTrainableNewsEmbeddingRecommender(GeneralRecommender, ABC):
 
         # RecBole token sequences are padded with 0
         return [dataset.id2token(field, [int(t)])[0] for t in ids if int(t) != 0]
+
+    def _attention_score_single(self, user_id: int, item_id: int) -> torch.Tensor:
+        hist = self.user_hist_items.get(user_id, [])
+        if not hist:
+            return torch.tensor(0.0, device=self.device)
+
+        hist_idx = torch.as_tensor(hist, dtype=torch.long, device=self.device)
+
+        hist_emb = self.item_embeddings[hist_idx]
+        item_emb = self.item_embeddings[item_id]
+
+        similarity = (hist_emb * item_emb.unsqueeze(0)).sum(dim=-1)
+        weights = torch.softmax(similarity, dim=0)
+        u_attn = (weights.unsqueeze(-1) * hist_emb).sum(dim=0)
+
+        score = (u_attn * item_emb).sum()
+        return score

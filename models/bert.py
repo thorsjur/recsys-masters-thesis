@@ -1,6 +1,6 @@
 import torch
 from tqdm import tqdm
-from models.non_train_base_model import NonTrainableNewsEmbeddingRecommender
+from models.non_train_base_model import NewsEmbeddingRecommender
 from transformers import AutoTokenizer, AutoModel
 
 import os
@@ -9,7 +9,7 @@ import hashlib
 from pathlib import Path
 
 
-class BERT(NonTrainableNewsEmbeddingRecommender):
+class BERT(NewsEmbeddingRecommender):
     """
     BERT-based non-trainable news recommender.
     """

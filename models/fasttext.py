@@ -3,10 +3,10 @@ import numpy as np
 from recbole.model.abstract_recommender import GeneralRecommender
 from recbole.utils import InputType
 
-from models.non_train_base_model import NonTrainableNewsEmbeddingRecommender
+from models.non_train_base_model import NewsEmbeddingRecommender
 
 
-class FastText(NonTrainableNewsEmbeddingRecommender):
+class FastText(NewsEmbeddingRecommender):
     """
     FastText-based news recommender.
 
