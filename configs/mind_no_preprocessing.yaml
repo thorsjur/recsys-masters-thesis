@@ -13,9 +13,9 @@ load_col:
 
 benchmark_filename: ['train', 'valid', 'test']
 
-# Filtering (applied during ETL)
-# user_inter_num_interval: "[5,inf)"
-# item_inter_num_interval: "[5,inf)"
+# Filtering (same as done in ETL for mind_small)
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[10,inf)"
 
 # pre-generated splits from ETL (RECOMMENDED)
 eval_args:

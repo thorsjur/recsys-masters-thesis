@@ -1,0 +1,9 @@
+bert_model_name: bert-base-uncased
+bert_max_length: 128
+bert_pooling: cls # cls seems to outperform mean for pooling, on nDCG@10 ca. 27% improvement
+bert_batch_size: 32
+bert_use_cache: True
+bert_cache_dir: ~/.cache/bert
+
+# Non-trainable model
+epochs: 0
