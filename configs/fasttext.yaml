@@ -14,7 +14,5 @@ similarity: cosine  # Options: cosine, dot
 # FastText embedding dimension
 fasttext_dim: 300
 
-# Training (not used for non-trainable model)
+# Non-trainable model
 epochs: 0
-train_batch_size: 2048
-eval_batch_size: 4096

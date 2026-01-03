@@ -1,12 +1,8 @@
-# TF-IDF Model Configuration
+# TF-IDF-based model configuration
 
-# Model parameters
 use_abstract: true
 title_field: title
 abstract_field: abstract
 
-# Training (not used for TF-IDF - it's a non-trainable model)
+# Non-trainable model
 epochs: 0
-train_batch_size: 2048
-eval_batch_size: 4096
-learning_rate: 0.001
