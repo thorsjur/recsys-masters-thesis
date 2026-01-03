@@ -122,7 +122,7 @@ def validate_sliding_windows(experiment_id: str,
     report_path = output_dir / f"{experiment_id}_window_validation.txt"
     with open(report_path, 'w') as f:
         f.write(report)
-    print(f"\n✓ Saved validation report: {report_path}")
+    print(f"\nSaved validation report: {report_path}")
     
     output_paths = {'report': str(report_path)}
     
@@ -133,19 +133,19 @@ def validate_sliding_windows(experiment_id: str,
         # LaTeX table
         latex_path = output_dir / f"{experiment_id}_window_stats.tex"
         export_statistics_table(stats_df, latex_path, format='latex')
-        print(f"✓ Saved LaTeX table: {latex_path}")
+        print(f"Saved LaTeX table: {latex_path}")
         output_paths['latex_table'] = str(latex_path)
         
         # CSV table
         csv_path = output_dir / f"{experiment_id}_window_stats.csv"
         export_statistics_table(stats_df, csv_path, format='csv')
-        print(f"✓ Saved CSV table: {csv_path}")
+        print(f"Saved CSV table: {csv_path}")
         output_paths['csv_table'] = str(csv_path)
         
         # Markdown table
         md_path = output_dir / f"{experiment_id}_window_stats.md"
         export_statistics_table(stats_df, md_path, format='markdown')
-        print(f"✓ Saved Markdown table: {md_path}")
+        print(f"Saved Markdown table: {md_path}")
         output_paths['markdown_table'] = str(md_path)
     
     # Generate plots
@@ -157,7 +157,7 @@ def validate_sliding_windows(experiment_id: str,
         comprehensive_path = output_dir / f"{experiment_id}_window_validation.pdf"
         fig.savefig(comprehensive_path, format='pdf', dpi=300, bbox_inches='tight')
         plt.close(fig)
-        print(f"✓ Saved comprehensive plot: {comprehensive_path}")
+        print(f"Saved comprehensive plot: {comprehensive_path}")
         output_paths['comprehensive_plot'] = str(comprehensive_path)
         
         # Individual plots for publication
@@ -168,7 +168,7 @@ def validate_sliding_windows(experiment_id: str,
         dist_path = output_dir / f"{experiment_id}_data_distribution.pdf"
         fig1.savefig(dist_path, format='pdf', dpi=300, bbox_inches='tight')
         plt.close(fig1)
-        print(f"✓ Saved data distribution plot: {dist_path}")
+        print(f"Saved data distribution plot: {dist_path}")
         output_paths['distribution_plot'] = str(dist_path)
         
         # 2. Cold-start ratios
@@ -177,7 +177,7 @@ def validate_sliding_windows(experiment_id: str,
         cs_path = output_dir / f"{experiment_id}_cold_start.pdf"
         fig2.savefig(cs_path, format='pdf', dpi=300, bbox_inches='tight')
         plt.close(fig2)
-        print(f"✓ Saved cold-start plot: {cs_path}")
+        print(f"Saved cold-start plot: {cs_path}")
         output_paths['cold_start_plot'] = str(cs_path)
         
         # 3. Overlap analysis
@@ -186,7 +186,7 @@ def validate_sliding_windows(experiment_id: str,
         overlap_path = output_dir / f"{experiment_id}_overlap_analysis.pdf"
         fig3.savefig(overlap_path, format='pdf', dpi=300, bbox_inches='tight')
         plt.close(fig3)
-        print(f"✓ Saved overlap analysis plot: {overlap_path}")
+        print(f"Saved overlap analysis plot: {overlap_path}")
         output_paths['overlap_plot'] = str(overlap_path)
         
         # 4. Volume stability
@@ -196,7 +196,7 @@ def validate_sliding_windows(experiment_id: str,
             stability_path = output_dir / f"{experiment_id}_volume_stability.pdf"
             fig4.savefig(stability_path, format='pdf', dpi=300, bbox_inches='tight')
             plt.close(fig4)
-            print(f"✓ Saved volume stability plot: {stability_path}")
+            print(f"Saved volume stability plot: {stability_path}")
             output_paths['stability_plot'] = str(stability_path)
     
     print(f"\n{'='*80}")

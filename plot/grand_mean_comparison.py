@@ -255,7 +255,7 @@ def plot_grand_mean_comparison(experiment_ids: List[str],
         output_path = Path(output_path)
     
     plt.savefig(output_path, format='pdf', dpi=300, bbox_inches='tight')
-    print(f"✓ Plot saved to: {output_path}")
+    print(f"Plot saved to: {output_path}")
     
     # Print statistics table
     print(f"\n{'='*90}")

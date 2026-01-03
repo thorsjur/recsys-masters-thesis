@@ -145,7 +145,7 @@ def analyze_dataset_from_experiment(experiment_id: str,
     plt.savefig(output_path1, format='pdf', dpi=300, bbox_inches='tight')
     plt.close()
     output_paths.append(output_path1)
-    print(f"✓ Saved: {output_path1}")
+    print(f"Saved: {output_path1}")
     
     # 2. Time of day/week pattern
     fig2, ax2 = plt.subplots(figsize=figsize)
@@ -171,7 +171,7 @@ def analyze_dataset_from_experiment(experiment_id: str,
     plt.savefig(output_path2, format='pdf', dpi=300, bbox_inches='tight')
     plt.close(fig2)
     output_paths.append(output_path2)
-    print(f"✓ Saved: {output_path2}")
+    print(f"Saved: {output_path2}")
     
     # 3. User/Item distributions
     fig3, (ax3_left, ax3_right) = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
@@ -182,7 +182,7 @@ def analyze_dataset_from_experiment(experiment_id: str,
     plt.savefig(output_path3, format='pdf', dpi=300, bbox_inches='tight')
     plt.close(fig3)
     output_paths.append(output_path3)
-    print(f"✓ Saved: {output_path3}")
+    print(f"Saved: {output_path3}")
     
     # Print statistics summary
     print(f"\n{'='*70}")
@@ -211,7 +211,7 @@ def analyze_dataset_from_experiment(experiment_id: str,
     print(f"\nWindows analyzed: {len(all_windows)}")
     print(f"{'='*70}\n")
     
-    print(f"\n✓ Generated {len(output_paths)} analysis plots in: {output_dir}\n")
+    print(f"\nGenerated {len(output_paths)} analysis plots in: {output_dir}\n")
     
     return {
         'statistics': temporal_stats,

@@ -245,10 +245,10 @@ def generate_validation_report(stats_df: pd.DataFrame,
         report_lines.append("  This is expected in news recommendation where items are constantly refreshed.")
         report_lines.append("  Models relying on item history may struggle in these conditions.")
     elif avg_cold_start > 0.1:
-        report_lines.append(f"✓ MODERATE cold-start ratio ({avg_cold_start*100:.1f}% new items on average).")
+        report_lines.append(f"MODERATE cold-start ratio ({avg_cold_start*100:.1f}% new items on average).")
         report_lines.append("  Content-based models should have an advantage over collaborative methods.")
     else:
-        report_lines.append(f"✓ LOW cold-start ratio ({avg_cold_start*100:.1f}% new items on average).")
+        report_lines.append(f"LOW cold-start ratio ({avg_cold_start*100:.1f}% new items on average).")
         report_lines.append("  Both collaborative and content-based models should perform well.")
     
     report_lines.append("")
@@ -262,7 +262,7 @@ def generate_validation_report(stats_df: pd.DataFrame,
     report_lines.append(f"  Test:  {test_cv:.3f}")
     
     if train_cv < 0.1:
-        report_lines.append("  ✓ Training data volume is STABLE across windows.")
+        report_lines.append("  Training data volume is STABLE across windows.")
     elif train_cv < 0.3:
         report_lines.append("  ~ Training data volume has MODERATE variation across windows.")
     else:

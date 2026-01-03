@@ -211,7 +211,7 @@ def plot_temporal_stability(experiment_id: str | List[str],
         save_path = Path(output_path)
     
     plt.savefig(save_path, format='pdf', dpi=300, bbox_inches='tight')
-    print(f"✓ Plot saved to: {save_path}")
+    print(f"Plot saved to: {save_path}")
     
     # Calculate and print stability metrics for each experiment
     print(f"\n{'='*70}")

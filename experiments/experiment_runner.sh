@@ -30,7 +30,7 @@ echo "==========================================================================
 cd "$(dirname "$0")/.."
 
 python run_stability_test.py \
-  --experiment C \
+  --experiment A \
   --model "$MODEL" \
   --dataset "$DATASET" \
   --window-size "$WINDOW_SIZE" \
@@ -45,5 +45,4 @@ python run_stability_test.py \
 echo "================================================================================"
 echo "Experiment $EXPERIMENT_ID completed!"
 echo "Results saved to: output/results/experiments.jsonl"
-echo "Filter results with: grep \"$EXPERIMENT_ID\" output/results/experiments.jsonl"
 echo "================================================================================"

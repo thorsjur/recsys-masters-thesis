@@ -133,25 +133,6 @@ class TemporalDatasetBuilder:
         Build temporary train/valid/test splits from time ranges.
         
         Supports both hour-level and day-level granularity. Validation set is optional.
-        
-        Args:
-            train_hours: (start, end) hour range for training (if granularity='hour')
-            valid_hours: (start, end) hour range for validation (optional)
-            test_hours: (start, end) hour range for testing (if granularity='hour')
-            train_days: (start, end) day range for training (if granularity='day')
-            valid_days: (start, end) day range for validation (optional)
-            test_days: (start, end) day range for testing (if granularity='day')
-            temp_prefix: Prefix for temporary file names
-            
-        Returns:
-            (temp_dir_path, splits_dict) where splits_dict contains:
-            {
-                'train': 'window1_train',
-                'valid': 'window1_valid',  # Only if valid_hours/days provided
-                'test': 'window1_test',
-                'benchmark_filename': ['window1_train', 'window1_valid', 'window1_test']
-                                   or ['window1_train', 'window1_test'] if no validation
-            }
         """
         # Determine which parameters to use based on granularity
         if self.granularity == 'hour':
