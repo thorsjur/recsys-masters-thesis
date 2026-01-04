@@ -1,477 +1,261 @@
-"""
-Dataset temporal analysis and visualization.
+"""Dataset temporal analysis and visualization utilities."""
 
-This module provides functions to analyze and visualize temporal properties
-of datasets used in experiments, including interaction patterns over time,
-user/item distributions, and data characteristics across windows.
-"""
-
-import json
-import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from matplotlib.patches import Rectangle
 from matplotlib.axes import Axes
 
-from util.experiment_data import load_experiment_results
 from util.statistics import basic_stats
 
+COLORS = {"primary": "#2E86AB", "secondary": "#A23B72", "accent": "#F18F01"}
 
-def load_temporal_interaction_data(dataset_path: str, 
-                                   dataset_name: str,
-                                   granularity: str,
-                                   time_units: range) -> pd.DataFrame:
+
+def _setup_axis(ax: Axes, xlabel: str, ylabel: str, title: str):
+    """Apply common axis formatting."""
+    ax.set_xlabel(xlabel, fontsize=12, fontweight="bold")
+    ax.set_ylabel(ylabel, fontsize=12, fontweight="bold")
+    ax.set_title(title, fontsize=13, fontweight="bold")
+    ax.grid(True, alpha=0.3, linestyle="--")
+
+
+def _filter_positive(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter dataframe to only positive interactions (label == 1).
+
+    Non-clicked impressions (label == 0) are excluded from analysis.
     """
-    Load interaction data from temporal split files.
-    
+    if "label" in df.columns:
+        return df[df["label"] == 1].copy()
+    return df
+
+
+def load_temporal_interaction_data(
+    dataset_path: str, dataset_name: str, granularity: str, time_units: range, positive_only: bool = True
+) -> pd.DataFrame:
+    """Load and combine interaction data from temporal split files.
+
     Args:
-        dataset_path: Path to dataset directory
-        dataset_name: Name of dataset
-        granularity: 'hour' or 'day'
-        time_units: Range of time units to load
-        
-    Returns:
-        DataFrame with columns: user_id, item_id, label, timestamp, time_unit
+        dataset_path: Path to datasets directory.
+        dataset_name: Name of the dataset.
+        granularity: Time granularity ('hour' or 'day').
+        time_units: Range of time units to load.
+        positive_only: If True (default), only include positive interactions (label==1).
+            Set to False to include non-clicked impressions.
     """
     dataset_dir = Path(dataset_path) / dataset_name
-    all_data = []
-    
+    dfs = []
+
     for unit in time_units:
-        if granularity == 'hour':
-            file_path = dataset_dir / f"{dataset_name}.hour_{unit}.inter"
-        else:
-            file_path = dataset_dir / f"{dataset_name}.day_{unit}.inter"
-        
-        if not file_path.exists():
-            continue
-        
-        # Read the file, skipping header
-        df = pd.read_csv(file_path, sep='\t', skiprows=1, 
-                        names=['user_id', 'item_id', 'label', 'timestamp', 'impression_id'])
-        df['time_unit'] = unit
-        all_data.append(df)
-    
-    if not all_data:
+        suffix = f"{granularity}_{unit}"
+        file_path = dataset_dir / f"{dataset_name}.{suffix}.inter"
+        if file_path.exists():
+            df = pd.read_csv(
+                file_path, sep="\t", skiprows=1, names=["user_id", "item_id", "label", "timestamp", "impression_id"]
+            )
+            df["time_unit"] = unit
+            dfs.append(df)
+
+    if not dfs:
         raise ValueError(f"No data files found for {dataset_name} in range {time_units}")
-    
-    return pd.concat(all_data, ignore_index=True)
+
+    result = pd.concat(dfs, ignore_index=True)
+    return _filter_positive(result) if positive_only else result
 
 
-def compute_temporal_statistics(df: pd.DataFrame, 
-                                granularity: str,
-                                start_timestamp: Optional[float] = None) -> Dict[str, Any]:
+def compute_temporal_statistics(
+    df: pd.DataFrame, granularity: str, start_timestamp: Optional[float] = None
+) -> Dict[str, Any]:
+    """Compute temporal statistics from interaction data.
+
+    Expects df to be pre-filtered for positive interactions if that's desired.
     """
-    Compute temporal statistics from interaction data.
-    
-    Args:
-        df: DataFrame with interaction data
-        granularity: 'hour' or 'day'
-        start_timestamp: Optional start timestamp for absolute time calculation
-        
-    Returns:
-        Dictionary with temporal statistics
-    """
-    if start_timestamp is None:
-        start_timestamp = float(df['timestamp'].min())
-    
+    start_ts = start_timestamp or float(df["timestamp"].min())
+
     stats = {
-        'total_interactions': len(df),
-        'positive_interactions': int((df['label'] == 1).sum()),
-        'negative_interactions': int((df['label'] == 0).sum()),
-        'unique_users': df['user_id'].nunique(),
-        'unique_items': df['item_id'].nunique(),
-        'time_span_seconds': float(df['timestamp'].max() - df['timestamp'].min()),
-        'first_timestamp': float(df['timestamp'].min()),
-        'last_timestamp': float(df['timestamp'].max()),
-        'start_datetime': datetime.fromtimestamp(float(start_timestamp)).isoformat(),
-        'granularity': granularity,
+        "total_interactions": len(df),
+        "unique_users": df["user_id"].nunique(),
+        "unique_items": df["item_id"].nunique(),
+        "time_span_seconds": float(df["timestamp"].max() - df["timestamp"].min()),
+        "first_timestamp": float(df["timestamp"].min()),
+        "last_timestamp": float(df["timestamp"].max()),
+        "start_datetime": datetime.fromtimestamp(start_ts).isoformat(),
+        "granularity": granularity,
     }
-    
-    # Interactions per time unit
-    interactions_per_unit = df.groupby('time_unit').size()
-    stats['interactions_per_unit'] = {
-        'mean': float(interactions_per_unit.mean()),
-        'std': float(interactions_per_unit.std()),
-        'min': int(interactions_per_unit.min()),
-        'max': int(interactions_per_unit.max()),
-    }
-    
-    # User activity
-    user_interactions = df.groupby('user_id').size()
-    stats['user_activity'] = {
-        'mean': float(user_interactions.mean()),
-        'std': float(user_interactions.std()),
-        'median': float(user_interactions.median()),
-        'min': int(user_interactions.min()),
-        'max': int(user_interactions.max()),
-    }
-    
-    # Item popularity
-    item_interactions = df.groupby('item_id').size()
-    stats['item_popularity'] = {
-        'mean': float(item_interactions.mean()),
-        'std': float(item_interactions.std()),
-        'median': float(item_interactions.median()),
-        'min': int(item_interactions.min()),
-        'max': int(item_interactions.max()),
-    }
-    
+
+    # Per time-unit stats
+    per_unit = df.groupby("time_unit").size()
+    stats["interactions_per_unit"] = basic_stats(per_unit.to_numpy())
+
+    # User activity stats
+    user_counts = df.groupby("user_id").size()
+    stats["user_activity"] = basic_stats(user_counts.to_numpy())
+
+    # Item popularity stats
+    item_counts = df.groupby("item_id").size()
+    stats["item_popularity"] = basic_stats(item_counts.to_numpy())
+
     return stats
 
 
-def plot_interactions_over_time(df: pd.DataFrame,
-                                granularity: str,
-                                start_timestamp: float,
-                                window_info: Optional[List[Dict]] = None,
-                                ax: Optional[Axes] = None) -> Axes:
-    """
-    Plot interactions over time with time-of-day/week patterns.
-    
-    Args:
-        df: DataFrame with interaction data
-        granularity: 'hour' or 'day'
-        start_timestamp: Timestamp of first interaction
-        window_info: Optional list of window configurations to overlay
-        ax: Optional matplotlib axes
-        
-    Returns:
-        Matplotlib axes object
-    """
+def plot_interactions_over_time(
+    df: pd.DataFrame,
+    granularity: str,
+    start_timestamp: float,
+    window_info: Optional[List[Dict]] = None,
+    ax: Optional[Axes] = None,
+) -> Axes:
+    """Plot interactions over time with optional day/night shading."""
     if ax is None:
-        fig, ax = plt.subplots(figsize=(14, 6))
-    
-    # Convert timestamps to datetime
-    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-    start_datetime = pd.to_datetime(start_timestamp, unit='s')
-    
+        _, ax = plt.subplots(figsize=(14, 6))
+
+    df = df.copy()
+    df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
+    start_dt = pd.to_datetime(start_timestamp, unit="s")
+
     # Aggregate by time unit
-    if granularity == 'hour':
-        # Hourly aggregation
-        df['hour_mark'] = start_datetime + pd.to_timedelta(df['time_unit'], unit='h')
-        agg_data = df.groupby('hour_mark').size().reset_index(name='count')
-        xlabel = 'Time (Hourly)'
-    else:
-        # Daily aggregation
-        df['day_mark'] = start_datetime + pd.to_timedelta(df['time_unit'], unit='D')
-        agg_data = df.groupby('day_mark').size().reset_index(name='count')
-        xlabel = 'Time (Daily)'
-    
-    time_col = 'hour_mark' if granularity == 'hour' else 'day_mark'
-    
-    # Add day/night gradient background (only for hourly granularity)
-    if granularity == 'hour':
-        from matplotlib.colors import LinearSegmentedColormap
-        import matplotlib.patches as mpatches
-        
-        # Get the time range
-        time_min, time_max = agg_data[time_col].min(), agg_data[time_col].max()
-        y_min, y_max = 0, ax.get_ylim()[1]
-        
-        # Create gradients for each day in the time range
-        current_time = time_min
-        while current_time <= time_max:
-            day_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
-            
-            # Night gradient: 0-6am (dark navy to lighter blue)
-            night_start = day_start
-            night_end = day_start + timedelta(hours=6)
-            if night_start < time_max and night_end > time_min:
-                # Create gradient from dark to light
-                for i in range(6):
-                    hour_start = day_start + timedelta(hours=i)
-                    hour_end = day_start + timedelta(hours=i+1)
-                    if hour_start < time_max and hour_end > time_min:
-                        # Gradient from dark navy (0am) to dawn blue (6am)
-                        alpha = 0.25 - (i * 0.035)  # 0.25 -> 0.04
-                        ax.axvspan(max(hour_start, time_min), min(hour_end, time_max),
-                                  alpha=alpha, color='#1a2332', zorder=0)
-            
-            # Day gradient: 6am-6pm (dawn to bright day to dusk)
-            for i in range(12):
-                hour_start = day_start + timedelta(hours=6+i)
-                hour_end = day_start + timedelta(hours=7+i)
-                if hour_start < time_max and hour_end > time_min:
-                    # Gradient from dawn blue -> bright yellow -> orange dusk
-                    if i < 3:  # 6am-9am: dawn (blue to yellow)
-                        color = '#87CEEB'  # Sky blue
-                        alpha = 0.08 + (i * 0.02)
-                    elif i < 9:  # 9am-3pm: day (bright yellow)
-                        color = '#FFD700'  # Golden yellow
-                        alpha = 0.15
-                    else:  # 3pm-6pm: afternoon (yellow to orange)
-                        color = '#FFA500'  # Orange
-                        alpha = 0.15 - ((i-9) * 0.02)
-                    ax.axvspan(max(hour_start, time_min), min(hour_end, time_max),
-                              alpha=alpha, color=color, zorder=0)
-            
-            # Evening/Night gradient: 6pm-midnight (dusk to dark night)
-            for i in range(6):
-                hour_start = day_start + timedelta(hours=18+i)
-                hour_end = day_start + timedelta(hours=19+i)
-                if hour_start < time_max and hour_end > time_min:
-                    # Gradient from orange dusk to dark navy
-                    alpha = 0.10 + (i * 0.025)  # 0.10 -> 0.235
-                    color = '#1a2332' if i > 2 else '#4a5a6a'
-                    ax.axvspan(max(hour_start, time_min), min(hour_end, time_max),
-                              alpha=alpha, color=color, zorder=0)
-            
-            current_time += timedelta(days=1)
-    
-    # Plot interactions on top
-    ax.plot(agg_data[time_col], agg_data['count'], 
-           linewidth=2.5, color='#2E86AB', marker='o', markersize=5, 
-           zorder=3, markerfacecolor='#2E86AB', markeredgecolor='white', markeredgewidth=1)
-    
-    ax.set_xlabel(xlabel, fontsize=12, fontweight='bold')
-    ax.set_ylabel('Number of Interactions', fontsize=12, fontweight='bold')
-    ax.set_title('Interaction Volume Over Time', fontsize=13, fontweight='bold')
-    ax.grid(True, alpha=0.3, linestyle='--', zorder=2)
-    
-    # Format x-axis dates
-    if granularity == 'hour':
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
-    else:
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
-    
+    time_col = "hour_mark" if granularity == "hour" else "day_mark"
+    unit = "h" if granularity == "hour" else "D"
+    df[time_col] = start_dt + pd.to_timedelta(df["time_unit"], unit=unit)
+    agg = df.groupby(time_col).size().reset_index(name="count")
+
+    # Day/night shading for hourly data
+    if granularity == "hour":
+        _add_day_night_shading(ax, agg[time_col].min(), agg[time_col].max())
+
+    ax.plot(
+        agg[time_col],
+        agg["count"],
+        linewidth=2.5,
+        color=COLORS["primary"],
+        marker="o",
+        markersize=5,
+        zorder=3,
+        markerfacecolor=COLORS["primary"],
+        markeredgecolor="white",
+        markeredgewidth=1,
+    )
+
+    xlabel = f"Time ({granularity.title()}ly)"
+    _setup_axis(ax, xlabel, "Number of Interactions", "Interaction Volume Over Time")
+
+    # Format x-axis
+    fmt = "%m-%d %H:%M" if granularity == "hour" else "%Y-%m-%d"
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(fmt))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right")
+
     return ax
 
 
-def plot_time_of_day_pattern(df: pd.DataFrame,
-                             start_timestamp: float,
-                             ax: Optional[Axes] = None) -> Axes:
-    """
-    Plot interaction patterns by hour of day.
-    
-    Args:
-        df: DataFrame with interaction data
-        start_timestamp: Timestamp of first interaction
-        ax: Optional matplotlib axes
-        
-    Returns:
-        Matplotlib axes object
-    """
+def _add_day_night_shading(ax: Axes, time_min, time_max):
+    """Add day/night gradient background to plot."""
+    current = time_min
+    while current <= time_max:
+        day_start = current.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Night hours (0-6)
+        for i in range(6):
+            h_start = day_start + timedelta(hours=i)
+            h_end = day_start + timedelta(hours=i + 1)
+            if h_start < time_max and h_end > time_min:
+                alpha = 0.25 - (i * 0.035)
+                ax.axvspan(max(h_start, time_min), min(h_end, time_max), alpha=alpha, color="#1a2332", zorder=0)
+
+        # Day hours (6-18)
+        for i in range(12):
+            h_start = day_start + timedelta(hours=6 + i)
+            h_end = day_start + timedelta(hours=7 + i)
+            if h_start < time_max and h_end > time_min:
+                color = "#87CEEB" if i < 3 else ("#FFD700" if i < 9 else "#FFA500")
+                alpha = 0.15 if 3 <= i < 9 else 0.08 + (min(i, 2) * 0.02)
+                ax.axvspan(max(h_start, time_min), min(h_end, time_max), alpha=alpha, color=color, zorder=0)
+
+        # Evening hours (18-24)
+        for i in range(6):
+            h_start = day_start + timedelta(hours=18 + i)
+            h_end = day_start + timedelta(hours=19 + i)
+            if h_start < time_max and h_end > time_min:
+                alpha = 0.10 + (i * 0.025)
+                color = "#1a2332" if i > 2 else "#4a5a6a"
+                ax.axvspan(max(h_start, time_min), min(h_end, time_max), alpha=alpha, color=color, zorder=0)
+
+        current += timedelta(days=1)
+
+
+def plot_time_of_day_pattern(df: pd.DataFrame, start_timestamp: float, ax: Optional[Axes] = None) -> Axes:
+    """Plot interaction patterns by hour of day."""
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 6))
-    
-    # Convert to datetime and extract hour of day
-    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-    df['hour_of_day'] = df['datetime'].dt.hour  # type: ignore
-    
-    # Aggregate by hour
-    hourly_counts = df.groupby('hour_of_day').size()
-    
-    # Create bar plot
+        _, ax = plt.subplots(figsize=(10, 6))
+
+    df = df.copy()
+    df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
+    df["hour_of_day"] = df["datetime"].dt.hour  # type: ignore[union-attr]
+
+    hourly = df.groupby("hour_of_day").size()
     hours = range(24)
-    counts = [hourly_counts.get(h, 0) for h in hours]
-    
-    colors = ['#2E86AB' if 6 <= h < 22 else '#A23B72' for h in hours]
-    ax.bar(hours, counts, color=colors, alpha=0.7, edgecolor='black', linewidth=0.5)
-    
-    ax.set_xlabel('Hour of Day', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Number of Interactions', fontsize=12, fontweight='bold')
-    ax.set_title('Interaction Pattern by Hour of Day', fontsize=13, fontweight='bold')
+    counts = [hourly.get(h, 0) for h in hours]
+    colors = [COLORS["primary"] if 6 <= h < 22 else COLORS["secondary"] for h in hours]
+
+    ax.bar(hours, counts, color=colors, alpha=0.7, edgecolor="black", linewidth=0.5)
+    ax.axvspan(-0.5, 6, alpha=0.1, color="gray", label="Night")
+    ax.axvspan(22, 24, alpha=0.1, color="gray")
+    ax.axvspan(6, 22, alpha=0.05, color="yellow", label="Day")
+
+    _setup_axis(ax, "Hour of Day", "Number of Interactions", "Interaction Pattern by Hour")
     ax.set_xticks(range(0, 24, 2))
-    ax.grid(True, alpha=0.3, linestyle='--', axis='y')
-    
-    # Add day/night labels
-    ax.axvspan(-0.5, 6, alpha=0.1, color='gray', label='Night')
-    ax.axvspan(22, 24, alpha=0.1, color='gray')
-    ax.axvspan(6, 22, alpha=0.05, color='yellow', label='Day')
-    ax.legend(loc='upper right', fontsize=9)
-    
+    ax.legend(loc="upper right", fontsize=9)
+
     return ax
 
 
-def plot_user_item_distributions(df: pd.DataFrame,
-                                 ax: Optional[Tuple[Axes, Axes]] = None,
-                                 log_scale: bool = False) -> Tuple[Axes, Axes]:
-    """
-    Plot user activity and item popularity distributions.
-    
-    Args:
-        df: DataFrame with interaction data
-        ax: Optional tuple of (user_ax, item_ax)
-        log_scale: If True, use log-log scale to visualize power-law distributions.
-                  This reveals the long tail by making both axes logarithmic.
-        
-    Returns:
-        Tuple of matplotlib axes objects
-    """
+def plot_user_item_distributions(
+    df: pd.DataFrame, ax: Optional[Tuple[Axes, Axes]] = None, log_scale: bool = False
+) -> Tuple[Axes, Axes]:
+    """Plot user activity and item popularity distributions."""
     if ax is None:
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+        _, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     else:
         ax1, ax2 = ax
-    
-    # User activity distribution
-    user_interactions = df.groupby('user_id').size()
-    
-    if log_scale:
-        # Log-log histogram to visualize power-law distribution
-        bins = np.logspace(np.log10(user_interactions.min()), 
-                          np.log10(user_interactions.max()), 50)
-        ax1.hist(user_interactions, bins=bins, color='#2E86AB', alpha=0.7, edgecolor='black')
-        ax1.set_xscale('log')
-        ax1.set_yscale('log')
-        ax1.set_xlabel('Interactions per User (log scale)', fontsize=11, fontweight='bold')
-        ax1.set_ylabel('Number of Users (log scale)', fontsize=11, fontweight='bold')
-        ax1.set_title('User Activity Distribution (Log-Log)', fontsize=12, fontweight='bold')
-    else:
-        # Linear histogram
-        ax1.hist(user_interactions, bins=50, color='#2E86AB', alpha=0.7, edgecolor='black')
-        ax1.set_xlabel('Interactions per User', fontsize=11, fontweight='bold')
-        ax1.set_ylabel('Number of Users', fontsize=11, fontweight='bold')
-        ax1.set_title('User Activity Distribution', fontsize=12, fontweight='bold')
-    
-    ax1.grid(True, alpha=0.3, linestyle='--', axis='both')
-    
-    # Add statistics text
-    stats_text = f"Mean: {user_interactions.mean():.1f}\nMedian: {user_interactions.median():.1f}\nStd: {user_interactions.std():.1f}"
-    ax1.text(0.95, 0.95, stats_text, transform=ax1.transAxes,
-            verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
-            fontsize=9)
-    
-    # Item popularity distribution
-    item_interactions = df.groupby('item_id').size()
-    
-    if log_scale:
-        # Log-log histogram to visualize power-law distribution
-        bins = np.logspace(np.log10(item_interactions.min()), 
-                          np.log10(item_interactions.max()), 50)
-        ax2.hist(item_interactions, bins=bins, color='#F18F01', alpha=0.7, edgecolor='black')
-        ax2.set_xscale('log')
-        ax2.set_yscale('log')
-        ax2.set_xlabel('Interactions per Item (log scale)', fontsize=11, fontweight='bold')
-        ax2.set_ylabel('Number of Items (log scale)', fontsize=11, fontweight='bold')
-        ax2.set_title('Item Popularity Distribution (Log-Log)', fontsize=12, fontweight='bold')
-    else:
-        # Linear histogram
-        ax2.hist(item_interactions, bins=50, color='#F18F01', alpha=0.7, edgecolor='black')
-        ax2.set_xlabel('Interactions per Item', fontsize=11, fontweight='bold')
-        ax2.set_ylabel('Number of Items', fontsize=11, fontweight='bold')
-        ax2.set_title('Item Popularity Distribution', fontsize=12, fontweight='bold')
-    
-    ax2.grid(True, alpha=0.3, linestyle='--', axis='both')
-    
-    # Add statistics text
-    stats_text = f"Mean: {item_interactions.mean():.1f}\nMedian: {item_interactions.median():.1f}\nStd: {item_interactions.std():.1f}"
-    ax2.text(0.95, 0.95, stats_text, transform=ax2.transAxes,
-            verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
-            fontsize=9)
-    
+
+    user_counts = df.groupby("user_id").size()
+    item_counts = df.groupby("item_id").size()
+
+    for axis, counts, label, color in [
+        (ax1, user_counts, "User", COLORS["primary"]),
+        (ax2, item_counts, "Item", COLORS["accent"]),
+    ]:
+        if log_scale:
+            bins = np.logspace(np.log10(counts.min()), np.log10(counts.max()), 50)
+            axis.hist(counts, bins=bins, color=color, alpha=0.7, edgecolor="black")
+            axis.set_xscale("log")
+            axis.set_yscale("log")
+            suffix = " (Log-Log)"
+        else:
+            axis.hist(counts, bins=50, color=color, alpha=0.7, edgecolor="black")
+            suffix = ""
+
+        _setup_axis(
+            axis,
+            f"Interactions per {label}",
+            f"Number of {label}s",
+            f'{label} {"Activity" if label == "User" else "Popularity"} Distribution{suffix}',
+        )
+
+        stats_text = f"Mean: {counts.mean():.1f}\nMedian: {counts.median():.1f}\nStd: {counts.std():.1f}"
+        axis.text(
+            0.95,
+            0.95,
+            stats_text,
+            transform=axis.transAxes,
+            va="top",
+            ha="right",
+            fontsize=9,
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+
     return ax1, ax2
-
-
-def plot_window_statistics(window_stats: List[Dict[str, Any]],
-                           ax: Optional[Axes] = None) -> Axes:
-    """
-    Plot statistics across temporal windows.
-    
-    Args:
-        window_stats: List of statistics for each window
-        ax: Optional matplotlib axes
-        
-    Returns:
-        Matplotlib axes object
-    """
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(12, 6))
-    
-    windows = [w['window_number'] for w in window_stats]
-    train_interactions = [w['train_interactions'] for w in window_stats]
-    test_interactions = [w['test_interactions'] for w in window_stats]
-    
-    x = np.arange(len(windows))
-    width = 0.35
-    
-    ax.bar(x - width/2, train_interactions, width, label='Train', color='#2E86AB', alpha=0.7)
-    ax.bar(x + width/2, test_interactions, width, label='Test', color='#F18F01', alpha=0.7)
-    
-    ax.set_xlabel('Window Number', fontsize=11, fontweight='bold')
-    ax.set_ylabel('Number of Interactions', fontsize=11, fontweight='bold')
-    ax.set_title('Train/Test Interactions per Window', fontsize=12, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels([f'W{w}' for w in windows])
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3, linestyle='--', axis='y')
-    
-    return ax
-
-
-def plot_interaction_heatmap(df: pd.DataFrame,
-                             granularity: str,
-                             start_timestamp: float,
-                             ax: Optional[Axes] = None) -> Axes:
-    """
-    Plot heatmap of interactions across time units and hours/days.
-    
-    Args:
-        df: DataFrame with interaction data
-        granularity: 'hour' or 'day'
-        start_timestamp: Timestamp of first interaction
-        ax: Optional matplotlib axes
-        
-    Returns:
-        Matplotlib axes object
-    """
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(14, 8))
-    
-    import matplotlib.colors as mcolors
-    
-    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s')
-    
-    if granularity == 'hour':
-        # Hour of day vs time unit
-        df['hour_of_day'] = df['datetime'].dt.hour  # type: ignore
-        pivot = df.groupby(['time_unit', 'hour_of_day']).size().unstack(fill_value=0)
-        
-        # Normalize by row for better visualization
-        pivot_norm = pivot.div(pivot.sum(axis=1), axis=0) * 100
-        
-        im = ax.imshow(pivot_norm.T, aspect='auto', cmap='YlOrRd', interpolation='nearest')
-        ax.set_xlabel('Time Unit (Hours)', fontsize=11, fontweight='bold')
-        ax.set_ylabel('Hour of Day', fontsize=11, fontweight='bold')
-        ax.set_title('Interaction Distribution: Hour of Day vs Time Unit (%)', fontsize=12, fontweight='bold')
-        
-        # Show every Nth hour on x-axis
-        step = max(1, len(pivot) // 20)
-        ax.set_xticks(range(0, len(pivot), step))
-        ax.set_xticklabels([str(i) for i in pivot.index[::step]], fontsize=8)
-        ax.set_yticks(range(24))
-        ax.set_yticklabels([str(i) for i in range(24)], fontsize=8)
-        
-    else:
-        # Day of week vs time unit
-        df['day_of_week'] = df['datetime'].dt.dayofweek  # type: ignore
-        pivot = df.groupby(['time_unit', 'day_of_week']).size().unstack(fill_value=0)
-        
-        # Normalize by row
-        pivot_norm = pivot.div(pivot.sum(axis=1), axis=0) * 100
-        
-        im = ax.imshow(pivot_norm.T, aspect='auto', cmap='YlOrRd', interpolation='nearest')
-        ax.set_xlabel('Time Unit (Days)', fontsize=11, fontweight='bold')
-        ax.set_ylabel('Day of Week', fontsize=11, fontweight='bold')
-        ax.set_title('Interaction Distribution: Day of Week vs Time Unit (%)', fontsize=12, fontweight='bold')
-        
-        step = max(1, len(pivot) // 15)
-        ax.set_xticks(range(0, len(pivot), step))
-        ax.set_xticklabels([str(i) for i in pivot.index[::step]], fontsize=8)
-        ax.set_yticks(range(7))
-        ax.set_yticklabels(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], fontsize=8)
-    
-    # Add colorbar
-    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label('Percentage of Interactions', rotation=270, labelpad=20, fontsize=10)
-    
-    return ax

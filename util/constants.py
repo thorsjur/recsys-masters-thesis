@@ -1,0 +1,2 @@
+SEPARATOR = "=" * 80
+SUB_SEPARATOR = "-" * 80

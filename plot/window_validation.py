@@ -16,6 +16,8 @@ import argparse
 from pathlib import Path
 from typing import Optional
 import matplotlib
+
+from util.constants import SEPARATOR
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -27,11 +29,8 @@ from util.window_validation import (
     export_statistics_table
 )
 from util.window_plots import (
-    plot_comprehensive_window_validation,
     plot_window_data_distribution,
     plot_cold_start_ratios,
-    plot_window_overlap_analysis,
-    plot_interaction_volume_stability
 )
 
 
@@ -152,17 +151,7 @@ def validate_sliding_windows(experiment_id: str,
     if generate_plots:
         print("\nGenerating validation plots...")
         
-        # Comprehensive validation figure
-        fig = plot_comprehensive_window_validation(stats_df, experiment_id, dataset_name)
-        comprehensive_path = output_dir / f"{experiment_id}_window_validation.pdf"
-        fig.savefig(comprehensive_path, format='pdf', dpi=300, bbox_inches='tight')
-        plt.close(fig)
-        print(f"Saved comprehensive plot: {comprehensive_path}")
-        output_paths['comprehensive_plot'] = str(comprehensive_path)
-        
-        # Individual plots for publication
-        
-        # 1. Data distribution
+        # Data distribution
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         plot_window_data_distribution(stats_df, ax=ax1)
         dist_path = output_dir / f"{experiment_id}_data_distribution.pdf"
@@ -171,7 +160,7 @@ def validate_sliding_windows(experiment_id: str,
         print(f"Saved data distribution plot: {dist_path}")
         output_paths['distribution_plot'] = str(dist_path)
         
-        # 2. Cold-start ratios
+        # Cold-start ratios
         fig2, ax2 = plt.subplots(figsize=(10, 5))
         plot_cold_start_ratios(stats_df, ax=ax2)
         cs_path = output_dir / f"{experiment_id}_cold_start.pdf"
@@ -180,28 +169,10 @@ def validate_sliding_windows(experiment_id: str,
         print(f"Saved cold-start plot: {cs_path}")
         output_paths['cold_start_plot'] = str(cs_path)
         
-        # 3. Overlap analysis
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        plot_window_overlap_analysis(stats_df, ax=ax3)
-        overlap_path = output_dir / f"{experiment_id}_overlap_analysis.pdf"
-        fig3.savefig(overlap_path, format='pdf', dpi=300, bbox_inches='tight')
-        plt.close(fig3)
-        print(f"Saved overlap analysis plot: {overlap_path}")
-        output_paths['overlap_plot'] = str(overlap_path)
         
-        # 4. Volume stability
-        if len(stats_df) >= 3:  # Need at least 3 windows for rolling stats
-            fig4, ax4 = plt.subplots(figsize=(10, 5))
-            plot_interaction_volume_stability(stats_df, ax=ax4)
-            stability_path = output_dir / f"{experiment_id}_volume_stability.pdf"
-            fig4.savefig(stability_path, format='pdf', dpi=300, bbox_inches='tight')
-            plt.close(fig4)
-            print(f"Saved volume stability plot: {stability_path}")
-            output_paths['stability_plot'] = str(stability_path)
-    
-    print(f"\n{'='*80}")
+    print(f"\n{SEPARATOR}")
     print("Validation complete!")
-    print(f"{'='*80}\n")
+    print(f"{SEPARATOR}\n")
     
     return {
         'statistics': stats_df,

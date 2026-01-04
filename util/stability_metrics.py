@@ -1,118 +1,77 @@
+"""Stability metrics for evaluating recommendation model consistency."""
+
 import numpy as np
 from typing import Dict, List, Optional
 
+from util.constants import SEPARATOR, SUB_SEPARATOR
 from util.statistics import coefficient_of_variation, range_statistic, mean, std
 
 
-def calculate_stability_metrics(metric_values: List[float]) -> Dict[str, float]:
-    """
-    Calculate stability metrics for a set of metric values across multiple runs.
-    
-    Args:
-        metric_values: List of metric values from different runs
-        
-    Returns:
-        Dictionary containing:
-            - mean: Average value
-            - std: Standard deviation (sample std with ddof=1)
-            - cv: Coefficient of Variation (%)
-            - max_drop: Maximum drop (best - worst)
-            - min: Minimum value
-            - max: Maximum value
-    """
-    if not metric_values or len(metric_values) == 0:
+def calculate_stability_metrics(values: List[float]) -> Dict[str, float]:
+    """Calculate stability metrics (mean, std, cv, range) for a set of values across runs."""
+    if not values:
         return {}
-    
-    values = np.array(metric_values)
-    
-    std_val = std(values, ddof=1) if len(values) > 1 else 0.0
-    
+
+    arr = np.array(values)
     return {
-        'mean': mean(values),
-        'std': std_val,
-        'cv': coefficient_of_variation(values, percent=True),
-        'max_drop': range_statistic(values),
-        'min': float(np.min(values)),
-        'max': float(np.max(values)),
-        'n_runs': len(values)
+        "mean": mean(arr),
+        "std": std(arr, ddof=1) if len(arr) > 1 else 0.0,
+        "cv": coefficient_of_variation(arr),
+        "max_drop": range_statistic(arr),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+        "n_runs": len(arr),
     }
 
 
-def aggregate_runs_stability(results: List[Dict[str, float]], metrics: Optional[List[str]] = None) -> Dict[str, Dict[str, float]]:
+def aggregate_runs_stability(
+    results: List[Dict[str, float]], metrics: Optional[List[str]] = None
+) -> Dict[str, Dict[str, float]]:
     """
-    Aggregate multiple run results and compute stability metrics.
-    
+    Aggregate results from multiple runs and compute stability per metric.
+
     Args:
-        results: List of result dictionaries from multiple runs
-        metrics: List of metric names to analyze (if None, use all common metrics)
-        
-    Returns:
-        Dictionary mapping metric names to their stability statistics
+        results: List of {metric_name: value} dicts from multiple runs
+        metrics: Metrics to analyze (default: all keys from first result)
     """
     if not results:
         return {}
-    
-    # Determine which metrics to analyze
+
     if metrics is None:
         metrics = list(results[0].keys())
-    
-    stability_stats = {}
-    
-    for metric in metrics:
-        # Collect values for this metric across all runs
-        values = [run[metric] for run in results if metric in run]
-        
-        if values:
-            stability_stats[metric] = calculate_stability_metrics(values)
-    
-    return stability_stats
+
+    return {metric: calculate_stability_metrics([r[metric] for r in results if metric in r]) for metric in metrics}
 
 
-def format_stability_report(stability_stats: Dict[str, Dict[str, float]], sort_by: str = 'cv') -> str:
-    """
-    Format stability statistics as a readable report.
-    
-    Args:
-        stability_stats: Output from aggregate_runs_stability
-        sort_by: Metric to sort by ('cv', 'max_drop', 'std')
-        
-    Returns:
-        Formatted string report
-    """
-    if not stability_stats:
+def format_stability_report(stats: Dict[str, Dict[str, float]], sort_by: str = "cv") -> str:
+    """Format stability statistics as a readable report, sorted by specified key."""
+    if not stats:
         return "No stability statistics available."
-    
-    # Sort metrics by the specified criterion
-    sorted_metrics = sorted(
-        stability_stats.items(),
-        key=lambda x: x[1].get(sort_by, 0),
-        reverse=True
-    )
-    
-    lines = []
-    lines.append("=" * 80)
-    lines.append("STABILITY ANALYSIS")
-    lines.append("=" * 80)
-    lines.append(f"{'Metric':<20} {'Mean':<10} {'Std':<10} {'CV (%)':<10} {'Max Drop':<10} {'Range':<15}")
-    lines.append("-" * 80)
-    
-    for metric, stats in sorted_metrics:
-        range_str = f"[{stats['min']:.4f}, {stats['max']:.4f}]"
+
+    sorted_items = sorted(stats.items(), key=lambda x: x[1].get(sort_by, 0), reverse=True)
+
+    lines = [
+        SEPARATOR,
+        "STABILITY ANALYSIS",
+        SEPARATOR,
+        f"{'Metric':<20} {'Mean':<10} {'Std':<10} {'CV (%)':<10} {'Max Drop':<10} {'Range':<15}",
+        SUB_SEPARATOR,
+    ]
+
+    for metric, s in sorted_items:
+        range_str = f"[{s['min']:.4f}, {s['max']:.4f}]"
         lines.append(
-            f"{metric:<20} "
-            f"{stats['mean']:<10.4f} "
-            f"{stats['std']:<10.4f} "
-            f"{stats['cv']:<10.2f} "
-            f"{stats['max_drop']:<10.4f} "
-            f"{range_str:<15}"
+            f"{metric:<20} {s['mean']:<10.4f} {s['std']:<10.4f} "
+            f"{s['cv']:<10.2f} {s['max_drop']:<10.4f} {range_str:<15}"
         )
-    
-    lines.append("=" * 80)
-    lines.append(f"Total runs analyzed: {list(stability_stats.values())[0]['n_runs']}")
-    lines.append("")
-    lines.append("Interpretation:")
-    lines.append("  - Lower CV (Coefficient of Variation) indicates higher stability")
-    lines.append("  - Lower Max Drop indicates less risk from bad initializations")
-    lines.append("=" * 80)
-    
+
+    n_runs = list(stats.values())[0].get("n_runs", "N/A")
+    lines.extend(
+        [
+            SEPARATOR,
+            f"Total runs analyzed: {n_runs}",
+            SEPARATOR,
+        ]
+    )
+
     return "\n".join(lines)
