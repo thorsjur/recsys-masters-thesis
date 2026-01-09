@@ -15,6 +15,7 @@ from recbole.data.dataloader.knowledge_dataloader import KnowledgeBasedDataLoade
 
 from util.logging_config import setup_logging
 from util.results_logger import ResultsLogger
+from util.dataset_analysis import collect_recbole_dataset_stats, format_dataset_stats_summary
 
 
 def get_model_class(model_name):
@@ -141,15 +142,8 @@ def main():
     logger.info(dataset)
 
     # Collect dataset statistics
-    dataset_stats = {
-        "num_users": int(dataset.user_num),
-        "num_items": int(dataset.item_num),
-        "num_interactions": int(dataset.inter_num),
-        "sparsity": float(1 - dataset.inter_num / (dataset.user_num * dataset.item_num)),
-        "avg_interactions_per_user": float(dataset.inter_num / dataset.user_num),
-        "avg_interactions_per_item": float(dataset.inter_num / dataset.item_num),
-        "has_item_features": dataset.item_feat is not None,
-    }
+    dataset_stats = collect_recbole_dataset_stats(dataset, config.final_config_dict)
+    logger.info(format_dataset_stats_summary(dataset_stats))
 
     # Debug: Check if item features are loaded
     logger.info(f"Original dataset has item_feat: {dataset.item_feat is not None}")
