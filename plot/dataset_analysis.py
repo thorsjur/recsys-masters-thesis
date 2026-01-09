@@ -1,30 +1,30 @@
-"""
-Dataset temporal analysis visualization.
+"""Dataset temporal analysis visualization.
 
-This script generates comprehensive visualizations of dataset temporal properties
-based on experimental configurations stored in experiments.jsonl.
-
-Features:
+Generates visualizations of dataset temporal properties from experiment configs:
 - Interaction volume over time with window overlays
 - Time-of-day/week patterns
 - User activity and item popularity distributions
-- Window-wise statistics comparison
 """
 
 import argparse
-import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-import pandas as pd
+from typing import Dict, Any, Optional
+
 import matplotlib
 
-from util.constants import SEPARATOR
-
 matplotlib.use("Agg")
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
+import pandas as pd
 
-from util.experiment_data import load_experiment_results
+from plot.common import (
+    get_output_dir,
+    save_figure,
+    print_header,
+    load_experiment,
+    collect_windows,
+    get_time_range,
+    run_cli,
+)
 from util.dataset_analysis import (
     load_temporal_interaction_data,
     compute_temporal_statistics,
@@ -43,56 +43,20 @@ def analyze_dataset_from_experiment(
     figsize: tuple = (12, 6),
     log_scale: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Generate comprehensive dataset analysis from experiment configuration.
-
-    Args:
-        experiment_id: Experiment ID to analyze
-        jsonl_path: Path to experiments.jsonl file
-        dataset_path: Path to dataset directory
-        output_dir: Directory to save PDFs (default: plot/output/)
-        start_timestamp: Optional start timestamp (uses first interaction if None)
-        figsize: Figure size (width, height) for each plot
-        log_scale: If True, use log-log scale for distribution plots to reveal power-law patterns
+    """Generate dataset analysis from experiment configuration.
 
     Returns:
         Dictionary with analysis results and statistics
     """
-    # Load experiment results
-    results = load_experiment_results(jsonl_path, experiment_id)
+    results, first = load_experiment(experiment_id, jsonl_path, require_temporal=True)
 
-    if not results:
-        raise ValueError(f"No results found for experiment_id: {experiment_id}")
-
-    # Extract configuration from first result
-    first_result = results[0]
-    window_info = first_result.get("window_info")
-
-    if not window_info:
-        raise ValueError(f"Experiment {experiment_id} has no window_info - not a temporal experiment")
-
-    dataset_name = first_result.get("run_info", {}).get("dataset", "unknown")
-    granularity = window_info.get("granularity", "hour")
-
-    # Collect all windows (deduplicate by window_number since there can be multiple runs per window)
-    windows_by_number = {}
-    for result in results:
-        w_info = result.get("window_info", {})
-        if w_info:
-            win_num = w_info.get("window_number")
-            if win_num is not None and win_num not in windows_by_number:
-                windows_by_number[win_num] = w_info
-
-    # Sort by window number
-    all_windows = [windows_by_number[k] for k in sorted(windows_by_number.keys())]
-
-    # Determine time range to load
-    min_unit = min(w.get("start_unit", 0) for w in all_windows)
-    max_unit = max(w.get("end_unit", 0) for w in all_windows)
+    dataset_name = first.get("run_info", {}).get("dataset", "unknown")
+    granularity = first["window_info"].get("granularity", "hour")
+    all_windows = collect_windows(results)
+    min_unit, max_unit = get_time_range(all_windows)
 
     print(f"Loading {dataset_name} data from {granularity} {min_unit} to {max_unit}...")
 
-    # Load interaction data
     df = load_temporal_interaction_data(
         dataset_path=dataset_path,
         dataset_name=dataset_name,
@@ -100,152 +64,105 @@ def analyze_dataset_from_experiment(
         time_units=range(min_unit, max_unit + 1),
     )
 
-    print(f"Loaded {len(df)} interactions from {df['user_id'].nunique()} users and {df['item_id'].nunique()} items")
+    print(f"Loaded {len(df)} interactions from {df['user_id'].nunique()} users, {df['item_id'].nunique()} items")
 
-    # Use provided start_timestamp or compute from data
     if start_timestamp is None:
-        start_timestamp = df["timestamp"].min()
+        start_timestamp = float(df["timestamp"].min())
 
-    # Compute statistics
-    temporal_stats = compute_temporal_statistics(df, granularity, start_timestamp)
-
-    # Compute per-window statistics
-    window_stats = []
-    for w_info in all_windows:
-        train_start = w_info.get("train_start_unit", w_info.get("start_unit"))
-        train_end = train_start + w_info.get("train_units", 0)
-        test_start = w_info.get("test_start_unit", train_end)
-        test_end = w_info.get("end_unit")
-
-        train_df = df[df["time_unit"].between(train_start, train_end - 1)]
-        test_df = df[df["time_unit"].between(test_start, test_end)]
-
-        window_stats.append(
-            {
-                "window_number": w_info.get("window_number"),
-                "train_interactions": len(train_df),
-                "test_interactions": len(test_df),
-                "train_users": train_df["user_id"].nunique(),
-                "test_users": test_df["user_id"].nunique(),
-                "train_items": train_df["item_id"].nunique(),
-                "test_items": test_df["item_id"].nunique(),
-            }
-        )
-
-    # Setup output directory
-    if output_dir is None:
-        output_dir = Path("plot/output")
-    else:
-        output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
+    stats = compute_temporal_statistics(df, granularity, start_timestamp)
+    out_dir = get_output_dir(output_dir)
     output_paths = []
 
-    # 1. Interactions over time
-    # Don't pass ax parameter so the function can create its own layout with window tracks
+    # Interactions over time
     plot_interactions_over_time(df, granularity, start_timestamp, all_windows)
-    start_dt = datetime.fromtimestamp(start_timestamp)
     plt.suptitle(f"{dataset_name} - Interactions Over Time", fontsize=12, fontweight="bold")
-    output_path1 = output_dir / f"{experiment_id}_interactions_timeline.pdf"
-    plt.savefig(output_path1, format="pdf", dpi=300, bbox_inches="tight")
-    plt.close()
-    output_paths.append(output_path1)
-    print(f"Saved: {output_path1}")
+    path1 = out_dir / f"{experiment_id}_interactions_timeline.pdf"
+    save_figure(plt.gcf(), path1)
+    output_paths.append(path1)
 
-    # 2. Time of day/week pattern
+    # Time pattern (hourly or day-of-week)
     fig2, ax2 = plt.subplots(figsize=figsize)
     if granularity == "hour":
         plot_time_of_day_pattern(df, start_timestamp, ax=ax2)
         fig2.suptitle(f"{dataset_name} - Hourly Interaction Pattern", fontsize=12, fontweight="bold")
     else:
-        # For daily granularity, show day of week pattern
-        df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
-        df["day_of_week"] = df["datetime"].dt.dayofweek
-        dow_counts = df.groupby("day_of_week").size()
-        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        ax2.bar(range(7), [dow_counts.get(i, 0) for i in range(7)], color="#2E86AB", alpha=0.7, edgecolor="black")
-        ax2.set_xlabel("Day of Week", fontsize=11, fontweight="bold")
-        ax2.set_ylabel("Number of Interactions", fontsize=11, fontweight="bold")
-        ax2.set_title("Interaction Pattern by Day of Week", fontsize=12, fontweight="bold")
-        ax2.set_xticks(range(7))
-        ax2.set_xticklabels(days)
-        ax2.grid(True, alpha=0.3, linestyle="--", axis="y")
-        fig2.suptitle(f"{dataset_name} - Day of Week Pattern", fontsize=12, fontweight="bold")
-    output_path2 = output_dir / f"{experiment_id}_time_pattern.pdf"
-    plt.savefig(output_path2, format="pdf", dpi=300, bbox_inches="tight")
-    plt.close(fig2)
-    output_paths.append(output_path2)
-    print(f"Saved: {output_path2}")
+        _plot_day_of_week(df, ax2, dataset_name)
+    path2 = out_dir / f"{experiment_id}_time_pattern.pdf"
+    save_figure(fig2, path2)
+    output_paths.append(path2)
 
-    # 3. User/Item distributions
-    fig3, (ax3_left, ax3_right) = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
-    plot_user_item_distributions(df, ax=(ax3_left, ax3_right), log_scale=log_scale)
-    scale_suffix = " (Log-Log)" if log_scale else ""
-    fig3.suptitle(f"{dataset_name} - User Activity & Item Popularity{scale_suffix}", fontsize=12, fontweight="bold")
-    output_path3 = output_dir / f"{experiment_id}_distributions.pdf"
-    plt.savefig(output_path3, format="pdf", dpi=300, bbox_inches="tight")
-    plt.close(fig3)
-    output_paths.append(output_path3)
-    print(f"Saved: {output_path3}")
+    # User/Item distributions
+    fig3, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
+    plot_user_item_distributions(df, ax=(ax_left, ax_right), log_scale=log_scale)
+    suffix = " (Log-Log)" if log_scale else ""
+    fig3.suptitle(f"{dataset_name} - User Activity & Item Popularity{suffix}", fontsize=12, fontweight="bold")
+    path3 = out_dir / f"{experiment_id}_distributions.pdf"
+    save_figure(fig3, path3)
+    output_paths.append(path3)
 
-    # Print statistics summary
-    print(f"\n{SEPARATOR}")
-    print(f"Dataset Analysis Summary - {experiment_id}")
-    print(f"{SEPARATOR}")
-    print(f"Dataset: {dataset_name}")
+    # Print summary
+    _print_summary(experiment_id, dataset_name, granularity, min_unit, max_unit, stats, len(all_windows))
+    print(f"\nGenerated {len(output_paths)} plots in: {out_dir}\n")
+
+    return {"statistics": stats, "dataframe": df, "output_paths": [str(p) for p in output_paths]}
+
+
+def _plot_day_of_week(df: pd.DataFrame, ax: Axes, dataset_name: str) -> None:
+    """Plot day-of-week interaction pattern."""
+    df = df.copy()
+    df["datetime"] = pd.to_datetime(df["timestamp"], unit="s")
+    df["day_of_week"] = df["datetime"].dt.dayofweek  # type: ignore[union-attr]
+    dow_counts = df.groupby("day_of_week").size()
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    ax.bar(range(7), [dow_counts.get(i, 0) for i in range(7)], color="#2E86AB", alpha=0.7, edgecolor="black")
+    ax.set_xlabel("Day of Week", fontsize=11, fontweight="bold")
+    ax.set_ylabel("Number of Interactions", fontsize=11, fontweight="bold")
+    ax.set_title("Interaction Pattern by Day of Week", fontsize=12, fontweight="bold")
+    ax.set_xticks(range(7))
+    ax.set_xticklabels(days)
+    ax.grid(True, alpha=0.3, linestyle="--", axis="y")
+    plt.gcf().suptitle(f"{dataset_name} - Day of Week Pattern", fontsize=12, fontweight="bold")
+
+
+def _print_summary(
+    exp_id: str, dataset: str, granularity: str, min_u: int, max_u: int, stats: Dict, n_windows: int
+) -> None:
+    """Print dataset analysis summary."""
+    print_header(f"Dataset Analysis Summary - {exp_id}")
+    print(f"Dataset: {dataset}")
     print(f"Granularity: {granularity}")
-    print(f"Time range: {min_unit} to {max_unit} ({max_unit - min_unit + 1} {granularity}s)")
-    print(f"Start datetime: {temporal_stats['start_datetime']}")
-    print(f"\nInteractions (positive/clicked only):")
-    print(f"  Total: {temporal_stats['total_interactions']:,}")
-    print(f"\nUsers: {temporal_stats['unique_users']:,}")
-    print(f"  Avg interactions/user: {temporal_stats['user_activity']['mean']:.1f}")
-    print(f"  Median interactions/user: {temporal_stats['user_activity']['median']:.1f}")
-    print(f"  Range: {temporal_stats['user_activity']['min']} - {temporal_stats['user_activity']['max']}")
-    print(f"\nItems: {temporal_stats['unique_items']:,}")
-    print(f"  Avg interactions/item: {temporal_stats['item_popularity']['mean']:.1f}")
-    print(f"  Median interactions/item: {temporal_stats['item_popularity']['median']:.1f}")
-    print(f"  Range: {temporal_stats['item_popularity']['min']} - {temporal_stats['item_popularity']['max']}")
+    print(f"Time range: {min_u} to {max_u} ({max_u - min_u + 1} {granularity}s)")
+    print(f"Start datetime: {stats['start_datetime']}")
+    print(f"\nInteractions (positive/clicked only): {stats['total_interactions']:,}")
+
+    ua = stats["user_activity"]
+    print(f"\nUsers: {stats['unique_users']:,}")
+    print(f"  Mean: {ua['mean']:.1f} | Median: {ua['median']:.1f} | Range: {ua['min']}-{ua['max']}")
+
+    ip = stats["item_popularity"]
+    print(f"\nItems: {stats['unique_items']:,}")
+    print(f"  Mean: {ip['mean']:.1f} | Median: {ip['median']:.1f} | Range: {ip['min']}-{ip['max']}")
+
+    ipu = stats["interactions_per_unit"]
     print(f"\nInteractions per {granularity}:")
-    print(f"  Mean: {temporal_stats['interactions_per_unit']['mean']:.1f}")
-    print(f"  Std: {temporal_stats['interactions_per_unit']['std']:.1f}")
-    print(
-        f"  Range: {temporal_stats['interactions_per_unit']['min']} - {temporal_stats['interactions_per_unit']['max']}"
+    print(f"  Mean: {ipu['mean']:.1f} | Std: {ipu['std']:.1f} | Range: {ipu['min']}-{ipu['max']}")
+    print(f"\nWindows analyzed: {n_windows}")
+
+
+def _run(args: argparse.Namespace) -> None:
+    analyze_dataset_from_experiment(
+        experiment_id=args.experiment_id,
+        jsonl_path=args.jsonl_path,
+        dataset_path=args.dataset_path,
+        output_dir=args.output_dir,
+        start_timestamp=args.start_timestamp,
+        figsize=tuple(args.figsize),
+        log_scale=args.log_scale,
     )
-    print(f"\nWindows analyzed: {len(all_windows)}")
-    print(f"{SEPARATOR}\n")
-
-    print(f"\nGenerated {len(output_paths)} analysis plots in: {output_dir}\n")
-
-    return {
-        "statistics": temporal_stats,
-        "window_stats": window_stats,
-        "dataframe": df,
-        "output_paths": [str(p) for p in output_paths],
-    }
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Analyze and visualize dataset temporal properties from experiments",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Analyze dataset from temporal experiment
-  python -m plot.dataset_analysis --experiment-id exp_tfidf_temporal_36h
-  
-  # Use log-log scale to reveal power-law distributions
-  python -m plot.dataset_analysis --experiment-id exp001 --log-scale
-  
-  # Specify custom start timestamp (Unix timestamp)
-  python -m plot.dataset_analysis --experiment-id exp001 \
-      --start-timestamp 1573463158
-  
-  # Custom output directory
-  python -m plot.dataset_analysis --experiment-id exp001 \
-      --output-dir my_plots/
-        """,
-    )
+    parser = argparse.ArgumentParser(description="Analyze dataset temporal properties from experiments")
 
     parser.add_argument(
         "--experiment-id", required=True, help="Experiment ID to analyze (must be temporal experiment)"
@@ -254,45 +171,12 @@ Examples:
         "--jsonl-path", default="output/results/experiments.jsonl", help="Path to experiments.jsonl file"
     )
     parser.add_argument("--dataset-path", default="datasets/atomic_files", help="Path to dataset directory")
-    parser.add_argument("--output-dir", "-o", help="Output directory for PDFs (default: plot/output/)")
-    parser.add_argument(
-        "--start-timestamp",
-        type=float,
-        help="Start timestamp (Unix timestamp). If not provided, uses first interaction.",
-    )
-    parser.add_argument(
-        "--figsize", nargs=2, type=float, default=[12, 6], help="Figure size (width height) for each plot"
-    )
-    parser.add_argument(
-        "--log-scale",
-        action="store_true",
-        help="Use log-log scale for distribution plots to reveal power-law patterns",
-    )
+    parser.add_argument("--output-dir", "-o", help="Output directory for PDFs")
+    parser.add_argument("--start-timestamp", type=float, help="Start timestamp (Unix)")
+    parser.add_argument("--figsize", nargs=2, type=float, default=[12, 6], help="Figure size")
+    parser.add_argument("--log-scale", action="store_true", help="Use log-log scale for distributions")
 
-    args = parser.parse_args()
-
-    try:
-        analyze_dataset_from_experiment(
-            experiment_id=args.experiment_id,
-            jsonl_path=args.jsonl_path,
-            dataset_path=args.dataset_path,
-            output_dir=args.output_dir,
-            start_timestamp=args.start_timestamp,
-            figsize=tuple(args.figsize),
-            log_scale=args.log_scale,
-        )
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
-        exit(1)
-    except ValueError as e:
-        print(f"Error: {e}")
-        exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        import traceback
-
-        traceback.print_exc()
-        exit(1)
+    run_cli(_run, parser)
 
 
 if __name__ == "__main__":

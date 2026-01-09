@@ -6,11 +6,10 @@ import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+from util.constants import DEFAULT_METRICS
 from util.statistics import coefficient_of_variation, range_statistic, mean, std
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_METRICS = ["ndcg@5", "ndcg@10", "mrr@5", "hit@5"]
 
 
 def load_experiment_results(jsonl_path: str, experiment_id: str) -> List[Dict[str, Any]]:
@@ -61,6 +60,11 @@ def extract_temporal_metrics(results: List[Dict[str, Any]], metrics: Optional[Li
             windows[win_num] = {"runs": [], "window_info": win_info, "dataset_info": result.get("dataset_info", {})}
 
         test_results = result.get("test_results", {})
+        if any(m not in test_results for m in metrics):
+            missing = [m for m in metrics if m not in test_results]
+            raise ValueError(f"Metrics {missing} not found in test_results for window {win_num}, available: {list(test_results.keys())}")
+        
+        
         windows[win_num]["runs"].append({m: test_results.get(m) for m in metrics})
 
     # Calculate per-window statistics

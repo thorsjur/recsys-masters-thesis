@@ -1,107 +1,86 @@
-"""
-Grand mean comparison visualization for recommendation models.
+"""Grand mean comparison visualization for recommendation models.
 
-This module provides functions to visualize the grand mean performance across
-all temporal windows and experimental runs, showing overall model performance
-with variance. Each model's performance is averaged across all N data points
-(windows × runs per window).
+Computes and visualizes grand mean performance averaged across all temporal
+windows and experimental runs, showing overall model performance with variance.
 """
 
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
+
 import matplotlib
 
-from util.constants import SEPARATOR
+from util.constants import DEFAULT_METRICS
 
-matplotlib.use("Agg")  # Use non-interactive backend
+matplotlib.use("Agg")
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 
-from util.experiment_data import (
-    load_experiment_results,
-)
+from plot.common import get_output_dir, print_header, run_cli, COLORS
+from util.experiment_data import load_experiment_results
 
 
 def compute_grand_mean_statistics(
     results: List[Dict[str, Any]], metrics: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    """
-    Compute grand mean statistics across all windows and runs.
-
-    Args:
-        results: List of experiment results from load_experiment_results
-        metrics: List of metrics to compute (default: common metrics)
+    """Compute grand mean statistics across all windows and runs.
 
     Returns:
-        Dictionary with grand mean statistics including:
-        - grand_mean: Mean across all data points
-        - grand_std: Standard deviation across all data points
-        - grand_sem: Standard error of the mean
-        - n_points: Total number of data points
-        - n_windows: Number of unique windows
-        - n_runs_per_window: Average runs per window
+        Dictionary with grand_mean, grand_std, grand_sem, n_points, etc.
     """
     if not results:
         raise ValueError("No results provided")
 
-    # Get metadata from first result
-    first_result = results[0]
-    dataset_name = first_result.get("run_info", {}).get("dataset", "unknown")
-    model_name = first_result.get("run_info", {}).get("model", "unknown")
-    experiment_id = first_result.get("experiment_id", "unknown")
+    first = results[0]
+    dataset_name = first.get("run_info", {}).get("dataset", "unknown")
+    model_name = first.get("run_info", {}).get("model", "unknown")
+    experiment_id = first.get("experiment_id", "unknown")
 
-    # Determine which metrics to use
+    # Determine metrics
     if metrics is None:
-        # Try to get from test_results
-        sample_metrics = first_result.get("test_results", {})
-        if sample_metrics:
-            # Use common metrics if available
-            common_metrics = ["ndcg@10", "recall@10", "hit@10", "mrr@10"]
-            metrics = [m for m in common_metrics if m in sample_metrics]
-            if not metrics:
-                # Fall back to first 4 metrics
-                metrics = list(sample_metrics.keys())[:4]
-        else:
+        sample = first.get("test_results", {})
+        if not sample:
             raise ValueError("No test_results found in results")
+        metrics = [m for m in DEFAULT_METRICS if m in sample] or list(sample.keys())[:4]
+    else:
+        # Assert all metrics exist
+        sample = first.get("test_results", {})
+        for m in metrics:
+            if m not in sample:
+                raise ValueError(f"Metric '{m}' not found in test_results. Available: {list(sample.keys())}")
 
-    # Collect all values for each metric
-    all_values = {metric: [] for metric in metrics}
-    window_numbers = set()
+    # Collect values
+    all_values: Dict[str, List[float]] = {m: [] for m in metrics}
+    window_numbers: set[int] = set()
 
     for result in results:
         test_res = result.get("test_results", {})
         if test_res:
-            for metric in metrics:
-                if metric in test_res:
-                    all_values[metric].append(test_res[metric])
-
-            # Track window numbers if available
-            window_info = result.get("window_info", {})
-            if window_info:
-                window_numbers.add(window_info.get("window_number"))
+            for m in metrics:
+                if m in test_res:
+                    all_values[m].append(test_res[m])
+            w_info = result.get("window_info", {})
+            if w_info and w_info.get("window_number") is not None:
+                window_numbers.add(w_info["window_number"])
 
     # Compute statistics
     statistics = {}
-    for metric in metrics:
-        values = np.array(all_values[metric])
-        statistics[metric] = {
-            "grand_mean": np.mean(values),
-            "grand_std": np.std(values, ddof=1),  # Sample std
-            "grand_sem": np.std(values, ddof=1) / np.sqrt(len(values)),
-            "grand_var": np.var(values, ddof=1),
-            "n_points": len(values),
-            "min": np.min(values),
-            "max": np.max(values),
-            "median": np.median(values),
-            "q25": np.percentile(values, 25),
-            "q75": np.percentile(values, 75),
+    for m in metrics:
+        vals = np.array(all_values[m])
+        n = len(vals)
+        statistics[m] = {
+            "grand_mean": float(np.mean(vals)),
+            "grand_std": float(np.std(vals, ddof=1)),
+            "grand_sem": float(np.std(vals, ddof=1) / np.sqrt(n)),
+            "n_points": n,
+            "min": float(np.min(vals)),
+            "max": float(np.max(vals)),
         }
 
-    # Compute runs per window
-    n_windows = len(window_numbers) if window_numbers else 1
-    total_points = len(all_values[metrics[0]])
-    runs_per_window = total_points / n_windows if n_windows > 0 else total_points
+    n_windows = len(window_numbers) or 1
+    total = len(all_values[metrics[0]])
 
     return {
         "metrics": statistics,
@@ -110,8 +89,8 @@ def compute_grand_mean_statistics(
             "model": model_name,
             "dataset": dataset_name,
             "n_windows": n_windows,
-            "n_runs_per_window": runs_per_window,
-            "total_points": total_points,
+            "n_runs_per_window": total / n_windows,
+            "total_points": total,
         },
     }
 
@@ -124,302 +103,189 @@ def plot_grand_mean_comparison(
     show_error_bars: bool = True,
     error_type: str = "std",
     figsize: Tuple[int, int] = (14, 8),
-) -> Tuple[plt.Figure, List[Dict]]:
-    """
-    Plot grand mean comparison across multiple models.
-
-    Args:
-        experiment_ids: List of experiment IDs to compare
-        jsonl_path: Path to experiments.jsonl file
-        metrics: List of metrics to plot (default: ndcg@10, recall@10, hit@10, mrr@10)
-        output_path: Path to save PDF
-        show_error_bars: Whether to show error bars
-        error_type: Type of error bar ('std', 'sem', or 'ci95')
-        figsize: Figure size (width, height)
+) -> Tuple[Figure, List[Dict[str, Any]]]:
+    """Plot grand mean comparison across multiple models.
 
     Returns:
         Tuple of (figure, list of statistics dictionaries)
     """
-    # Load and compute statistics for all experiments
+    # Load and compute statistics
     all_stats = []
     for exp_id in experiment_ids:
         results = load_experiment_results(jsonl_path, exp_id)
         if not results:
             raise ValueError(f"No results found for experiment_id: {exp_id}")
+        all_stats.append(compute_grand_mean_statistics(results, metrics))
 
-        stats = compute_grand_mean_statistics(results, metrics)
-        all_stats.append(stats)
-
-    # Get metrics to plot (use first experiment's metrics)
     plot_metrics = list(all_stats[0]["metrics"].keys())
-
-    # Set up plot
     n_metrics = len(plot_metrics)
     n_cols = 2
     n_rows = (n_metrics + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
-    if n_rows * n_cols == 1:
-        axes = [axes]
-    else:
-        axes = axes.flatten()
+    axes = [axes] if n_rows * n_cols == 1 else axes.flatten()
 
-    # Color palette
-    color_palette = ["#2E86AB", "#F18F01", "#A23B72", "#06A77D", "#D4AF37", "#9B59B6", "#E74C3C", "#16A085"]
-
-    # Plot each metric
     for metric_idx, metric in enumerate(plot_metrics):
         ax = axes[metric_idx]
-
-        # Prepare data
-        model_names = [stats["metadata"]["model"] for stats in all_stats]
-        means = [stats["metrics"][metric]["grand_mean"] for stats in all_stats]
-        stds = [stats["metrics"][metric]["grand_std"] for stats in all_stats]
-        sems = [stats["metrics"][metric]["grand_sem"] for stats in all_stats]
-        n_points = [stats["metadata"]["total_points"] for stats in all_stats]
-
-        # Calculate error bars
-        if error_type == "std":
-            errors = stds
-            error_label = "±1 SD"
-        elif error_type == "sem":
-            errors = sems
-            error_label = "±1 SEM"
-        elif error_type == "ci95":
-            # 95% confidence interval: mean ± 1.96 * SEM
-            errors = [1.96 * sem for sem in sems]
-            error_label = "95% CI"
-        else:
-            raise ValueError(f"Unknown error_type: {error_type}")
-
-        x = np.arange(len(model_names))
-        width = 0.6
-
-        # Create bars
-        bars = ax.bar(
-            x,
-            means,
-            width,
-            color=[color_palette[i % len(color_palette)] for i in range(len(model_names))],
-            alpha=0.8,
-            edgecolor="black",
-            linewidth=1.2,
-        )
-
-        # Add error bars
-        if show_error_bars:
-            ax.errorbar(
-                x, means, yerr=errors, fmt="none", color="black", capsize=5, capthick=1.5, linewidth=1.5, alpha=0.7
-            )
-
-        # Add value labels on bars
-        for i, (bar, mean, n) in enumerate(zip(bars, means, n_points)):
-            height = bar.get_height()
-            ax.text(
-                bar.get_x() + bar.get_width() / 2.0,
-                height,
-                f"{mean:.4f}\n(N={n})",
-                ha="center",
-                va="bottom",
-                fontsize=8,
-                fontweight="bold",
-            )
-
-        # Formatting
-        ax.set_ylabel(metric.upper(), fontsize=11, fontweight="bold")
-        ax.set_title(f"{metric.upper()} - Grand Mean Across All Windows & Runs", fontsize=12, fontweight="bold")
-        ax.set_xticks(x)
-        ax.set_xticklabels(model_names, rotation=45, ha="right", fontsize=9)
-        ax.grid(True, alpha=0.3, linestyle="--", axis="y")
-
-        # Add error bar legend
-        if show_error_bars:
-            ax.text(
-                0.02,
-                0.98,
-                f"Error bars: {error_label}",
-                transform=ax.transAxes,
-                fontsize=8,
-                verticalalignment="top",
-                bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
-            )
-
-        # Set y-axis to start from 0 or slightly below minimum
-        y_min = min(means) - max(errors) if show_error_bars else min(means)
-        y_max = max(means) + max(errors) if show_error_bars else max(means)
-        y_padding = (y_max - y_min) * 0.15
-        ax.set_ylim(max(0, y_min - y_padding), y_max + y_padding)
+        _plot_metric_bars(ax, all_stats, metric, show_error_bars, error_type)
 
     # Hide unused subplots
     for idx in range(n_metrics, len(axes)):
         axes[idx].set_visible(False)
 
-    # Add overall title
-    dataset_name = all_stats[0]["metadata"]["dataset"]
-    n_windows = all_stats[0]["metadata"]["n_windows"]
-    runs_per_window = all_stats[0]["metadata"]["n_runs_per_window"]
-    total_points = all_stats[0]["metadata"]["total_points"]
-
-    main_title = (
-        f"Grand Mean Performance Comparison on {dataset_name}\n"
-        f"Averaged across {n_windows} windows × {runs_per_window:.0f} runs = "
-        f"N={total_points} data points per model"
+    # Title
+    meta = all_stats[0]["metadata"]
+    title = (
+        f"Grand Mean Performance on {meta['dataset']}\n"
+        f"Averaged across {meta['n_windows']} windows × {meta['n_runs_per_window']:.0f} runs = "
+        f"N={meta['total_points']} per model"
     )
-    fig.suptitle(main_title, fontsize=13, fontweight="bold", y=0.98)
-
+    fig.suptitle(title, fontsize=13, fontweight="bold", y=0.98)
     plt.tight_layout(rect=(0, 0.02, 1, 0.94))
 
-    # Save to PDF
-    if output_path is None:
-        output_dir = Path("plot/output")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"grand_mean_comparison_{'_'.join(experiment_ids)}.pdf"
-    else:
-        output_path = Path(output_path)
+    # Save
+    out_dir = get_output_dir()
+    save_path = Path(output_path) if output_path else out_dir / f"grand_mean_{'_'.join(experiment_ids)}.pdf"
+    plt.savefig(save_path, format="pdf", dpi=300, bbox_inches="tight")
+    print(f"Saved: {save_path}")
 
-    plt.savefig(output_path, format="pdf", dpi=300, bbox_inches="tight")
-    print(f"Plot saved to: {output_path}")
-
-    # Print statistics table
-    print(f"\n{SEPARATOR}")
-    print(f"Grand Mean Performance - {dataset_name}")
-    print(f"{SEPARATOR}")
-    print(f"Data points per model: N = {n_windows} windows × {runs_per_window:.0f} runs = {total_points}")
-    print(f"{SEPARATOR}\n")
-
-    # Table header
-    header = f"{'Model':<20} | {'Metric':<12} | {'Mean':<8} | {'Std':<8} | {'SEM':<8} | {'Min':<8} | {'Max':<8}"
-    print(header)
-    print("-" * 90)
-
-    # Print data for each model
-    for stats in all_stats:
-        model = stats["metadata"]["model"]
-        for metric_idx, metric in enumerate(plot_metrics):
-            metric_stats = stats["metrics"][metric]
-
-            model_label = model if metric_idx == 0 else ""
-
-            row = (
-                f"{model_label:<20} | {metric:<12} | "
-                f"{metric_stats['grand_mean']:>8.4f} | "
-                f"{metric_stats['grand_std']:>8.4f} | "
-                f"{metric_stats['grand_sem']:>8.4f} | "
-                f"{metric_stats['min']:>8.4f} | "
-                f"{metric_stats['max']:>8.4f}"
-            )
-            print(row)
-
-        if stats != all_stats[-1]:
-            print("-" * 90)
-
-    print(SEPARATOR)
-
-    # Statistical comparison
-    if len(all_stats) > 1:
-        print(f"\n{SEPARATOR}")
-        print("Pairwise Comparisons")
-        print(f"{SEPARATOR}\n")
-
-        for metric in plot_metrics:
-            print(f"{metric.upper()}:")
-
-            # Sort models by performance
-            model_means = [(stats["metadata"]["model"], stats["metrics"][metric]["grand_mean"]) for stats in all_stats]
-            model_means.sort(key=lambda x: x[1], reverse=True)
-
-            for rank, (model, mean) in enumerate(model_means, 1):
-                print(f"  {rank}. {model:<20} {mean:.4f}")
-
-            # Calculate relative differences from best
-            best_mean = model_means[0][1]
-            print(f"\n  Relative to best ({model_means[0][0]}):")
-            for model, mean in model_means[1:]:
-                rel_diff = ((mean - best_mean) / best_mean) * 100
-                print(f"    {model:<20} {rel_diff:>+6.2f}%")
-            print()
-
-        print(SEPARATOR)
-
-    print()
+    _print_stats_table(all_stats, plot_metrics)
 
     return fig, all_stats
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Compare grand mean performance across models",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Compare multiple models
-  python -m plot.grand_mean_comparison --experiment-id exp_tfidf exp_fasttext exp_pop exp_random
-  
-  # Custom metrics
-  python -m plot.grand_mean_comparison --experiment-id exp001 exp002 \\
-      --metrics ndcg@10 recall@20
-  
-  # Show 95% confidence intervals instead of standard deviation
-  python -m plot.grand_mean_comparison --experiment-id exp001 exp002 \\
-      --error-type ci95
-  
-  # Custom output path
-  python -m plot.grand_mean_comparison --experiment-id exp001 exp002 \\
-      --output my_comparison.pdf
+def _plot_metric_bars(
+    ax: Axes,
+    all_stats: List[Dict[str, Any]],
+    metric: str,
+    show_error_bars: bool,
+    error_type: str,
+) -> None:
+    """Plot bar chart for a single metric."""
+    models = [s["metadata"]["model"] for s in all_stats]
+    means = [s["metrics"][metric]["grand_mean"] for s in all_stats]
+    stds = [s["metrics"][metric]["grand_std"] for s in all_stats]
+    sems = [s["metrics"][metric]["grand_sem"] for s in all_stats]
+    n_pts = [s["metadata"]["total_points"] for s in all_stats]
 
-Purpose:
-  This script computes and visualizes the grand mean performance averaged
-  across all temporal windows and all experimental runs. For example, with
-  9 windows and 3 runs per window, each model has N=27 data points.
-  
-  The plot shows:
-  - Bar chart of mean performance for each model
-  - Error bars (standard deviation, SEM, or 95% CI)
-  - Sample size (N) for each model
-  - Statistical comparison table
-        """,
+    errors, label = _get_error_values(stds, sems, error_type)
+    x = np.arange(len(models))
+
+    bars = ax.bar(
+        x,
+        means,
+        0.6,
+        color=[COLORS[i % len(COLORS)] for i in range(len(models))],
+        alpha=0.8,
+        edgecolor="black",
+        linewidth=1.2,
     )
 
-    parser.add_argument(
-        "--experiment-id", nargs="+", required=True, help="Experiment IDs to compare (must be 2 or more)"
-    )
-    parser.add_argument(
-        "--jsonl-path", default="output/results/experiments.jsonl", help="Path to experiments.jsonl file"
-    )
-    parser.add_argument("--metrics", nargs="+", help="Metrics to plot (default: ndcg@10 recall@10 hit@10 mrr@10)")
-    parser.add_argument("--output", "-o", help="Output PDF path")
-    parser.add_argument(
-        "--error-type",
-        choices=["std", "sem", "ci95"],
-        default="std",
-        help="Type of error bars: std (standard deviation), sem (standard error), ci95 (95%% CI)",
-    )
-    parser.add_argument("--no-error-bars", action="store_true", help="Hide error bars")
-    parser.add_argument("--figsize", nargs=2, type=float, default=[14, 8], help="Figure size (width height)")
-
-    args = parser.parse_args()
-
-    if len(args.experiment_id) < 2:
-        print("Error: At least 2 experiment IDs are required for comparison")
-        exit(1)
-
-    try:
-        plot_grand_mean_comparison(
-            experiment_ids=args.experiment_id,
-            jsonl_path=args.jsonl_path,
-            metrics=args.metrics,
-            output_path=args.output,
-            show_error_bars=not args.no_error_bars,
-            error_type=args.error_type,
-            figsize=tuple(args.figsize),
+    if show_error_bars:
+        ax.errorbar(x, means, yerr=errors, fmt="none", color="black", capsize=5, capthick=1.5, alpha=0.7)
+        ax.text(
+            0.02,
+            0.98,
+            f"Error: {label}",
+            transform=ax.transAxes,
+            fontsize=8,
+            va="top",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
         )
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
-        print(f"Make sure {args.jsonl_path} exists")
+
+    for bar, mean, n in zip(bars, means, n_pts):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{mean:.4f}\n(N={n})",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+        )
+
+    ax.set_ylabel(metric.upper(), fontsize=11, fontweight="bold")
+    ax.set_title(f"{metric.upper()} - Grand Mean", fontsize=12, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=45, ha="right", fontsize=9)
+    ax.grid(True, alpha=0.3, linestyle="--", axis="y")
+
+    # Y-axis limits
+    err_max = max(errors) if show_error_bars else 0
+    y_min, y_max = min(means) - err_max, max(means) + err_max
+    pad = (y_max - y_min) * 0.15
+    ax.set_ylim(max(0, y_min - pad), y_max + pad)
+
+
+def _get_error_values(stds: List[float], sems: List[float], error_type: str) -> Tuple[List[float], str]:
+    """Get error bar values based on type."""
+    if error_type == "std":
+        return stds, "±1 SD"
+    elif error_type == "sem":
+        return sems, "±1 SEM"
+    elif error_type == "ci95":
+        return [1.96 * s for s in sems], "95% CI"
+    raise ValueError(f"Unknown error_type: {error_type}")
+
+
+def _print_stats_table(all_stats: List[Dict[str, Any]], metrics: List[str]) -> None:
+    """Print statistics table."""
+    meta = all_stats[0]["metadata"]
+    print_header(f"Grand Mean Performance - {meta['dataset']}")
+    print(f"N = {meta['n_windows']} windows × {meta['n_runs_per_window']:.0f} runs = {meta['total_points']}")
+
+    print(f"\n{'Model':<20} | {'Metric':<12} | {'Mean':>8} | {'Std':>8} | {'Min':>8} | {'Max':>8}")
+    print("-" * 80)
+
+    for stats in all_stats:
+        model = stats["metadata"]["model"]
+        for i, m in enumerate(metrics):
+            s = stats["metrics"][m]
+            lbl = model if i == 0 else ""
+            print(
+                f"{lbl:<20} | {m:<12} | {s['grand_mean']:>8.4f} | {s['grand_std']:>8.4f} | {s['min']:>8.4f} | {s['max']:>8.4f}"
+            )
+        if stats != all_stats[-1]:
+            print("-" * 80)
+
+    # Rankings
+    if len(all_stats) > 1:
+        print("\nRankings by metric:")
+        for m in metrics:
+            ranked = sorted(
+                [(s["metadata"]["model"], s["metrics"][m]["grand_mean"]) for s in all_stats],
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            print(f"  {m.upper()}: {', '.join(f'{r[0]}={r[1]:.4f}' for r in ranked)}")
+
+
+def _run(args: argparse.Namespace) -> None:
+    if len(args.experiment_id) < 2:
+        print("Error: At least 2 experiment IDs required")
         exit(1)
-    except ValueError as e:
-        print(f"Error: {e}")
-        exit(1)
+    plot_grand_mean_comparison(
+        experiment_ids=args.experiment_id,
+        jsonl_path=args.jsonl_path,
+        metrics=args.metrics,
+        output_path=args.output,
+        show_error_bars=not args.no_error_bars,
+        error_type=args.error_type,
+        figsize=tuple(args.figsize),
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Compare grand mean performance across models")
+    parser.add_argument("--experiment-id", nargs="+", required=True, help="Experiment IDs to compare")
+    parser.add_argument("--jsonl-path", default="output/results/experiments.jsonl")
+    parser.add_argument("--metrics", nargs="+", help="Metrics to plot")
+    parser.add_argument("--output", "-o", help="Output PDF path")
+    parser.add_argument("--error-type", choices=["std", "sem", "ci95"], default="std")
+    parser.add_argument("--no-error-bars", action="store_true")
+    parser.add_argument("--figsize", nargs=2, type=float, default=[14, 8])
+
+    run_cli(_run, parser)
 
 
 if __name__ == "__main__":
