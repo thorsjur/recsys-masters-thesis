@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import os
 from typing import Dict, Optional
+from tqdm import tqdm
+
+# Chunk size for writing large files (rows per chunk)
+WRITE_CHUNK_SIZE = 500000
+
 
 class BaseAtomicConverter(ABC):
     def __init__(self, config, 
@@ -67,29 +72,50 @@ class BaseAtomicConverter(ABC):
 
     def _write_atomic_file(self, df: pd.DataFrame, field_mapping: Dict[str, str], filename: str):
         """
-        Generic writer that replaces the complex RecBole loop.
+        Memory-efficient writer that processes data in chunks.
+        Avoids copying entire DataFrame to reduce memory usage.
         """
         if df is None or df.empty:
             print(f"Warning: DataFrame for {filename} is empty. Skipping write.")
             return
 
-        # 1. Select only the columns present in the mapping
-        # Keys of field_mapping are the columns in the internal DF
+        # 1. Validate columns exist
         source_cols = list(field_mapping.keys())
-        
-        # Check for missing columns
         missing = [c for c in source_cols if c not in df.columns]
         if missing:
             raise ValueError(f"Missing columns in dataframe for {filename}: {missing}")
 
-        # 2. Create a view with only necessary columns
-        output_df = df[source_cols].copy()
-
-        # 3. Rename columns to RecBole format (e.g. 'userId' -> 'user_id:token')
-        output_df.rename(columns=field_mapping, inplace=True)
-
-        # 4. Write to disk
-        full_path = os.path.join(self.output_path, filename)
-        output_df.to_csv(full_path, sep='\t', index=False)
+        # 2. Build header with RecBole format names
+        header_cols = [field_mapping[c] for c in source_cols]
         
-        print(f"Saved {filename} ({len(output_df)} rows)")
+        full_path = os.path.join(self.output_path, filename)
+        total_rows = len(df)
+        total_chunks = (total_rows + WRITE_CHUNK_SIZE - 1) // WRITE_CHUNK_SIZE
+        
+        # 3. Write in chunks to avoid memory spikes
+        with open(full_path, 'w', encoding='utf-8') as f:
+            # Write header
+            f.write('\t'.join(header_cols) + '\n')
+            
+            # Write data in chunks with progress bar
+            with tqdm(
+                total=total_rows,
+                desc=f"Writing {filename}",
+                unit="rows",
+                unit_scale=True,
+                bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+            ) as pbar:
+                for chunk_idx, start_idx in enumerate(range(0, total_rows, WRITE_CHUNK_SIZE)):
+                    end_idx = min(start_idx + WRITE_CHUNK_SIZE, total_rows)
+                    chunk = df.iloc[start_idx:end_idx][source_cols]
+                    
+                    # Write chunk without header (already written)
+                    chunk.to_csv(f, sep='\t', index=False, header=False, mode='a')
+                    
+                    pbar.update(len(chunk))
+                    pbar.set_postfix(chunk=f"{chunk_idx + 1}/{total_chunks}", refresh=False)
+                    
+                    # Clear chunk reference
+                    del chunk
+        
+        print(f"Saved {filename} ({total_rows:,} rows)")

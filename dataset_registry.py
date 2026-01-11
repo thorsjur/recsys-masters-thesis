@@ -41,7 +41,27 @@ def get_mind_no_preprocessing():
     
     return config, MINDDataLoader
 
+def get_mind_large_no_preprocessing():
+    """MIND Small with standard preprocessing."""
+    pipeline = []
+    
+    config = DatasetConfig(
+        raw_path='./datasets/MINDlarge',
+        output_dir='./datasets/atomic_files',
+        dataset_name='mind_large',
+        version='large',
+        converter_class=MINDAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None,
+        
+        # Test is excluded, since MIND Large does not have labels for test set
+        options={"subfolders": ["train", "dev"]}
+    )
+    
+    return config, MINDDataLoader
+
 DATASET_REGISTRY = {
     "mind_small_baseline": get_mind_small_baseline,
     "mind_small_no_preprocessing": get_mind_no_preprocessing,
+    "mind_large_no_preprocessing": get_mind_large_no_preprocessing,
 }

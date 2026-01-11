@@ -1,4 +1,4 @@
-# MIND No Preprocessing Dataset Configuration
+# MIND Large Dataset Configuration
 
 # Field definitions
 USER_ID_FIELD: user_id
@@ -11,7 +11,7 @@ load_col:
   inter: [user_id, item_id, label, timestamp, impression_id]
   item: [item_id, category, sub_category, title, abstract]
 
-benchmark_filename: ['train', 'valid', 'test']
+benchmark_filename: ['train', 'valid', 'test'] # These are overwritten in temporal experiments
 
 # Filtering (same as done in ETL for mind_small)
 user_inter_num_interval: "[5,inf)"

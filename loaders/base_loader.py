@@ -20,6 +20,7 @@ class DatasetConfig:
     min_user_history: int = 5
     min_item_frequency: int = 10
     temporal_days: Optional[Union[int, Tuple[int, str]]] = None
+    options: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.raw_path:
@@ -96,7 +97,11 @@ class AbstractDataLoader(ABC):
         
         # 2. Run Main Conversion (creates dataset.inter and dataset.item)
         converter.convert()
-
+        
+        # Generate day-wise splits for temporal experiments if requested
+        if self.config.temporal_days:
+            self._generate_day_wise_splits(converter)
+            return
 
         if self.config.splitter is None:
             print(f"[{self.__class__.__name__}] No Splitter defined. Skipping split generation.")
@@ -114,10 +119,6 @@ class AbstractDataLoader(ABC):
         converter.write_interaction_file(valid, f"{base_name}.valid.inter")
         converter.write_interaction_file(test,  f"{base_name}.test.inter")
         
-        # 5. Generate day-wise splits for temporal experiments if requested
-        if self.config.temporal_days:
-            self._generate_day_wise_splits(converter)
-        
         print(f"[{self.__class__.__name__}] Export Complete.")
     
     def _generate_day_wise_splits(self, converter):
@@ -129,7 +130,7 @@ class AbstractDataLoader(ABC):
         Or: dataset.hour_1.inter, dataset.hour_2.inter, etc. (if temporal_days is a tuple)
         """
         if isinstance(self.config.temporal_days, tuple):
-            # Hour-level granularity: (num_hours, 'hour')
+            # Hour-level granularity
             num_units, granularity = self.config.temporal_days
             if granularity != 'hour':
                 print(f"Warning: Unknown granularity '{granularity}', expected 'hour'")
@@ -137,7 +138,7 @@ class AbstractDataLoader(ABC):
             seconds_per_unit = 3600  # 1 hour
             unit_name = 'hour'
         else:
-            # Day-level granularity (backward compatible)
+            # Day-level granularity
             num_units = self.config.temporal_days
             seconds_per_unit = 86400  # 1 day
             unit_name = 'day'
@@ -148,7 +149,7 @@ class AbstractDataLoader(ABC):
             print(f"Warning: No 'timestamp' column found. Skipping temporal splits.")
             return
         
-        # Convert timestamp to time unit number (starting from 1)
+        # Convert timestamp to time unit number (1 indexed)
         min_timestamp = self.df_inter['timestamp'].min()
         self.df_inter['time_unit'] = ((self.df_inter['timestamp'] - min_timestamp) / seconds_per_unit).astype(int) + 1
         
@@ -166,7 +167,6 @@ class AbstractDataLoader(ABC):
                 print(f"  Warning: {unit_name.capitalize()} {unit} has no interactions, skipping")
                 continue
             
-            # Remove the temporary time_unit column before saving
             unit_df = unit_df.drop(columns=['time_unit'])
             
             converter.write_interaction_file(unit_df, f"{base_name}.{unit_name}_{unit}.inter")
