@@ -1,48 +1,47 @@
 #!/bin/bash
 ########################################################
-# IDUN HPC Job Script
+# IDUN HPC Dataset Preparation Job
 # Experiment: ${experiment_id}
-# Task: ${task_id}
-# Model: ${model}
 # Generated automatically - do not edit manually
 ########################################################
 
-#SBATCH --job-name=${experiment_id}_${task_id}
+#SBATCH --job-name=${experiment_id}_prep
 ${slurm_directives}
 
 set -e  # Exit on first error
 
 echo "=========================================="
-echo "IDUN Job Information"
+echo "IDUN Dataset Preparation Job"
 echo "=========================================="
 echo "Job ID: $$SLURM_JOB_ID"
-echo "Task ID: ${task_id}"
 echo "Experiment: ${experiment_id}"
 echo "Partition: $$SLURM_JOB_PARTITION"
 echo "Node(s): $$SLURM_JOB_NODELIST"
 echo "Cores: $$SLURM_CPUS_PER_TASK"
-echo "Memory: ${memory}"
 echo "Start time: $$(date)"
 echo "Working directory: $$SLURM_SUBMIT_DIR"
 echo "=========================================="
 
 ${env_setup}
 
-# Run the experiment
-echo "Starting experiment..."
-${python_cmd}
+# Run dataset preparation
+echo "Preparing temporal datasets..."
+python -c "
+from slurm.state import StateManager
+from slurm.orchestrator import ExperimentOrchestrator
+
+state_manager = StateManager()
+orchestrator = ExperimentOrchestrator(state_manager=state_manager)
+window_configs = orchestrator.prepare_temporal_datasets('${experiment_id}')
+print(f'Prepared {len(window_configs)} task configurations')
+"
 
 EXIT_CODE=$$?
 
 echo "=========================================="
-echo "Job completed"
+echo "Preparation completed"
 echo "End time: $$(date)"
 echo "Exit code: $$EXIT_CODE"
 echo "=========================================="
-
-# Print job efficiency hint
-echo ""
-echo "To check job efficiency after completion, run:"
-echo "  seff $$SLURM_JOB_ID"
 
 exit $$EXIT_CODE

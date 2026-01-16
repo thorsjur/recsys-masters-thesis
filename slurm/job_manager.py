@@ -157,7 +157,11 @@ class SlurmJobManager:
         return "\n".join(directives)
 
     def _build_environment_setup(self, config: ExperimentConfig) -> str:
-        """Build environment setup commands for IDUN cluster."""
+        """Build environment setup commands for IDUN cluster.
+
+        Note: These strings are inserted directly into the final script,
+        so use regular $ (not $$) for bash variables.
+        """
         lines = [
             "# Working directory",
             "WORKDIR=${SLURM_SUBMIT_DIR}",
@@ -202,6 +206,96 @@ class SlurmJobManager:
             )
 
         return "\n".join(lines)
+
+    def _build_prep_slurm_directives(self, config: ExperimentConfig) -> str:
+        """Build Slurm SBATCH directives for prep job (CPU-only, shorter time)."""
+        log_dir = self.logs_dir / config.experiment_id
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        output_file = log_dir / "prep_%j.out"
+        error_file = log_dir / "prep_%j.err"
+
+        if not config.account:
+            raise ValueError("Slurm account is required on IDUN.")
+
+        # Prep job uses CPU partition with modest resources
+        directives = [
+            f"#SBATCH --account={config.account}",
+            "#SBATCH --partition=CPUQ",
+            "#SBATCH --time=01:00:00",  # 1 hour should be plenty
+            "#SBATCH --nodes=1",
+            "#SBATCH --ntasks-per-node=1",
+            "#SBATCH --cpus-per-task=4",
+            "#SBATCH --mem=16G",
+            f"#SBATCH --output={output_file}",
+            f"#SBATCH --error={error_file}",
+        ]
+
+        if config.mail_user:
+            directives.append(f"#SBATCH --mail-user={config.mail_user}")
+            directives.append("#SBATCH --mail-type=FAIL")
+
+        return "\n".join(directives)
+
+    def generate_prep_job_script(self, config: ExperimentConfig) -> Path:
+        """Generate a Slurm job script for dataset preparation."""
+        script_name = f"{config.experiment_id}_prep.sh"
+        script_path = self.scripts_dir / config.experiment_id / script_name
+        script_path.parent.mkdir(parents=True, exist_ok=True)
+
+        slurm_directives = self._build_prep_slurm_directives(config)
+        env_setup = self._build_environment_setup(config)
+
+        template = self._load_template("prep_job.sh.template")
+        script_content = template.substitute(
+            experiment_id=config.experiment_id,
+            slurm_directives=slurm_directives,
+            env_setup=env_setup,
+        )
+
+        with open(script_path, "w") as f:
+            f.write(script_content)
+
+        os.chmod(script_path, 0o755)
+        logger.info(f"Generated prep script: {script_path}")
+        return script_path
+
+    def submit_prep_job(self, experiment_id: str) -> Optional[str]:
+        """
+        Submit the dataset preparation job.
+
+        Returns:
+            Slurm job ID if successful, None otherwise
+        """
+        config, progress, tasks = self.state_manager.load_experiment(experiment_id)
+        script_path = self.generate_prep_job_script(config)
+
+        sbatch_cmd = ["sbatch", str(script_path)]
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would submit prep job: {' '.join(sbatch_cmd)}")
+            return "dry_run_prep"
+
+        try:
+            result = subprocess.run(
+                sbatch_cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            match = re.search(r"Submitted batch job (\d+)", result.stdout)
+            if match:
+                job_id = match.group(1)
+                logger.info(f"Submitted prep job as {job_id}")
+                return job_id
+            else:
+                logger.error(f"Could not parse job ID from: {result.stdout}")
+                return None
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to submit prep job: {e.stderr}")
+            return None
 
     def _build_python_command(
         self,
@@ -319,6 +413,7 @@ class SlurmJobManager:
         tasks: List[TaskInfo],
         window_configs: List[Dict],
         max_parallel: int = 10,
+        dependency_job_ids: Optional[List[str]] = None,
     ) -> Optional[str]:
         """
         Submit multiple tasks as a Slurm array job.
@@ -338,11 +433,14 @@ class SlurmJobManager:
         if max_parallel and max_parallel < len(tasks):
             array_spec += f"%{max_parallel}"
 
-        sbatch_cmd = [
-            "sbatch",
-            f"--array={array_spec}",
-            str(script_path),
-        ]
+        sbatch_cmd = ["sbatch", f"--array={array_spec}"]
+
+        # Add dependency if specified
+        if dependency_job_ids:
+            dep_str = ":".join(dependency_job_ids)
+            sbatch_cmd.extend(["--dependency", f"afterok:{dep_str}"])
+
+        sbatch_cmd.append(str(script_path))
 
         if self.dry_run:
             logger.info(f"[DRY RUN] Would submit array job: {' '.join(sbatch_cmd)}")
@@ -579,9 +677,16 @@ class SlurmJobManager:
         experiment_id: str,
         window_configs: Dict[str, Dict],
         max_retries: int = 3,
+        dependency_job_ids: Optional[List[str]] = None,
     ) -> List[str]:
         """
         Resubmit failed/cancelled tasks.
+
+        Args:
+            experiment_id: Experiment identifier
+            window_configs: Window configurations (can be empty if using prep job)
+            max_retries: Maximum retry attempts per task
+            dependency_job_ids: Job IDs to wait for before running
 
         Returns:
             List of newly submitted job IDs
@@ -596,9 +701,19 @@ class SlurmJobManager:
         ]
 
         for task in failed_tasks:
-            if task.task_id not in window_configs:
+            # Use placeholder config if prep job handles preparation
+            if window_configs and task.task_id not in window_configs:
                 logger.warning(f"No window config for task {task.task_id}, skipping")
                 continue
+
+            task_config = window_configs.get(
+                task.task_id,
+                {
+                    "task_id": task.task_id,
+                    "window_idx": task.window_idx,
+                    "seed": task.seed,
+                },
+            )
 
             # Increment retry count
             self.state_manager.update_task(
@@ -617,7 +732,8 @@ class SlurmJobManager:
             job_id = self.submit_task(
                 experiment_id,
                 updated_task,
-                window_configs[task.task_id],
+                task_config,
+                dependency_job_ids=dependency_job_ids,
             )
             if job_id:
                 submitted_jobs.append(job_id)

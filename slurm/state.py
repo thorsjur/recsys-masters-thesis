@@ -93,22 +93,27 @@ class ExperimentConfig:
     params: List[str] = field(default_factory=list)
     data_path: str = "datasets/atomic_files"
     description: Optional[str] = None
+
     # IDUN Slurm-specific configuration
     partition: str = "CPUQ"  # CPUQ, GPUQ, or short
-    time_limit: str = "04:00:00"
+    time_limit: str = "48:00:00"
     memory: str = "16G"
     cpus_per_task: int = 4
     ntasks_per_node: int = 1
     nodes: int = 1
+
     # GPU configuration (IDUN uses --gres=gpu:TYPE:COUNT)
     gpu_count: int = 0
     gpu_type: Optional[str] = None  # p100, v100, a100, h100
     gpu_constraint: Optional[str] = None  # gpu16g, gpu32g, gpu40g, gpu80g, sxm4
+
     # Account is REQUIRED on IDUN
     account: str = ""
+
     # Module loading
     modules: List[str] = field(default_factory=list)
     conda_env: Optional[str] = None
+
     # Email notifications
     mail_user: Optional[str] = None
     mail_type: str = "FAIL"  # NONE, BEGIN, END, FAIL, ALL

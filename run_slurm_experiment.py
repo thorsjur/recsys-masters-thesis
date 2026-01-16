@@ -338,8 +338,8 @@ def _add_slurm_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--time-limit",
         type=str,
-        default="04:00:00",
-        help="Job time limit HH:MM:SS (default: '04:00:00'). Max: CPUQ=30d, GPUQ=14d",
+        default="48:00:00",
+        help="Job time limit HH:MM:SS (default: '48:00:00'). Max: CPUQ=30d, GPUQ=14d",
     )
     parser.add_argument(
         "--memory",
@@ -451,25 +451,27 @@ def cmd_create(args, orchestrator: ExperimentOrchestrator):
     print(f"Created experiment '{args.experiment_id}' with {len(tasks)} tasks")
 
     if args.submit:
-        print("Preparing temporal datasets...")
-        orchestrator.prepare_temporal_datasets(args.experiment_id)
-        print("Submitting jobs...")
-        stats = orchestrator.submit_all(args.experiment_id)
-        print(f"Submitted {stats.submitted} jobs")
+        print("Submitting prep job and experiment tasks...")
+        stats = orchestrator.submit_with_prep(args.experiment_id)
+        print(f"Submitted {stats.submitted} tasks (prep job + {stats.submitted} experiment jobs)")
+        if stats.job_ids:
+            print(f"Job IDs: {', '.join(stats.job_ids)}")
 
 
 def cmd_submit(args, orchestrator: ExperimentOrchestrator):
     """Handle submit command."""
-    print(f"Preparing temporal datasets for {args.experiment_id}...")
-    orchestrator.prepare_temporal_datasets(args.experiment_id)
-
     if args.tasks:
+        # Specific tasks - prepare locally since we're not doing full experiment
+        print(f"Preparing temporal datasets for {args.experiment_id}...")
+        orchestrator.prepare_temporal_datasets(args.experiment_id)
+
         task_ids = [t.strip() for t in args.tasks.split(",")]
         print(f"Submitting {len(task_ids)} specific tasks...")
         stats = orchestrator.submit_tasks(args.experiment_id, task_ids)
     else:
-        print("Submitting all pending tasks...")
-        stats = orchestrator.submit_all(
+        # Full experiment - use prep job with dependencies
+        print("Submitting prep job and experiment tasks...")
+        stats = orchestrator.submit_with_prep(
             args.experiment_id,
             use_array_jobs=not args.no_array,
             max_parallel=args.max_parallel,
@@ -522,17 +524,23 @@ def cmd_monitor(args, orchestrator: ExperimentOrchestrator):
 
 def cmd_retry(args, orchestrator: ExperimentOrchestrator):
     """Handle retry command."""
-    print(f"Preparing temporal datasets for {args.experiment_id}...")
-    orchestrator.prepare_temporal_datasets(args.experiment_id)
+    print(f"Submitting prep job and retrying failed tasks for {args.experiment_id}...")
+
+    # Submit prep job first, then retry with dependency
+    prep_job_id = orchestrator.submit_prep_job(args.experiment_id)
+    if not prep_job_id:
+        print("Failed to submit prep job")
+        return
 
     stats = orchestrator.retry_failed(
         args.experiment_id,
         max_retries=args.max_retries,
+        prep_job_id=prep_job_id,
     )
 
     print(f"Retried {stats.submitted} tasks, {stats.failed} failed to submit")
     if stats.job_ids:
-        print(f"Job IDs: {', '.join(stats.job_ids)}")
+        print(f"Job IDs: {prep_job_id} (prep), {', '.join(stats.job_ids)}")
 
 
 def cmd_pause(args, orchestrator: ExperimentOrchestrator):
@@ -547,9 +555,8 @@ def cmd_resume(args, orchestrator: ExperimentOrchestrator):
     print(f"Resumed {count} paused tasks")
 
     if args.submit:
-        print("Submitting resumed tasks...")
-        orchestrator.prepare_temporal_datasets(args.experiment_id)
-        stats = orchestrator.submit_all(args.experiment_id)
+        print("Submitting prep job and resumed tasks...")
+        stats = orchestrator.submit_with_prep(args.experiment_id)
         print(f"Submitted {stats.submitted} jobs")
 
 

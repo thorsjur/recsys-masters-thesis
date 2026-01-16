@@ -61,6 +61,52 @@ class ExperimentOrchestrator:
         self.job_manager = job_manager or SlurmJobManager(self.state_manager, dry_run=dry_run)
         self.dry_run = dry_run
         self._window_configs: Dict[str, Dict] = {}
+        self._prep_job_id: Optional[str] = None
+
+    def submit_prep_job(self, experiment_id: str) -> Optional[str]:
+        """
+        Submit the dataset preparation job.
+
+        Returns:
+            Slurm job ID if successful, None otherwise
+        """
+        prep_job_id = self.job_manager.submit_prep_job(experiment_id)
+        if prep_job_id:
+            self._prep_job_id = prep_job_id
+            logger.info(f"Submitted prep job {prep_job_id}")
+        return prep_job_id
+
+    def submit_with_prep(
+        self,
+        experiment_id: str,
+        use_array_jobs: bool = True,
+        max_parallel: int = 10,
+    ) -> SubmissionStats:
+        """
+        Submit prep job first, then all tasks with dependency.
+
+        This is the recommended method for HPC submission.
+        """
+        # Submit prep job first
+        prep_job_id = self.submit_prep_job(experiment_id)
+        if not prep_job_id:
+            logger.error("Failed to submit prep job")
+            return SubmissionStats(failed=1)
+
+        logger.info(f"Prep job submitted: {prep_job_id}")
+        logger.info("Submitting experiment tasks with dependency on prep job...")
+
+        # Submit all tasks with dependency on prep job
+        stats = self.submit_all(
+            experiment_id,
+            use_array_jobs=use_array_jobs,
+            max_parallel=max_parallel,
+            prep_job_id=prep_job_id,
+        )
+
+        # Add prep job to stats
+        stats.job_ids.insert(0, f"{prep_job_id} (prep)")
+        return stats
 
     def create_experiment(
         self,
@@ -79,7 +125,7 @@ class ExperimentOrchestrator:
         description: Optional[str] = None,
         # IDUN Slurm options
         partition: str = "CPUQ",  # CPUQ, GPUQ, or short
-        time_limit: str = "04:00:00",
+        time_limit: str = "48:00:00",
         memory: str = "16G",
         cpus_per_task: int = 4,
         ntasks_per_node: int = 1,
@@ -292,6 +338,7 @@ class ExperimentOrchestrator:
         use_array_jobs: bool = True,
         max_parallel: int = 10,
         skip_prepared: bool = True,
+        prep_job_id: Optional[str] = None,
     ) -> SubmissionStats:
         """
         Submit all pending tasks to Slurm.
@@ -301,6 +348,7 @@ class ExperimentOrchestrator:
             use_array_jobs: Whether to use Slurm array jobs (more efficient)
             max_parallel: Maximum concurrent jobs for array jobs
             skip_prepared: Skip already submitted/completed tasks
+            prep_job_id: Job ID of prep job to wait for (dependency)
 
         Returns:
             SubmissionStats with counts and job IDs
@@ -322,8 +370,12 @@ class ExperimentOrchestrator:
             logger.info("No pending tasks to submit")
             return stats
 
-        # Ensure window configs are prepared
-        if not self._window_configs:
+        # Build dependency list
+        dependency_job_ids = [prep_job_id] if prep_job_id else None
+
+        # If no prep job provided, prepare datasets locally (for local runs)
+        if not prep_job_id and not self._window_configs:
+            logger.info("No prep job dependency - preparing datasets locally")
             self._window_configs = self.prepare_temporal_datasets(experiment_id)
 
         if use_array_jobs:
@@ -336,13 +388,21 @@ class ExperimentOrchestrator:
 
             # Submit each window's tasks as an array job
             for window_idx, window_tasks in window_groups.items():
-                window_task_configs = [self._window_configs[t.task_id] for t in window_tasks]
+                # For jobs with prep dependency, window configs will be built by prep job
+                if prep_job_id:
+                    # Generate placeholder configs - actual data prepared by prep job
+                    window_task_configs = [
+                        {"task_id": t.task_id, "window_idx": t.window_idx, "seed": t.seed} for t in window_tasks
+                    ]
+                else:
+                    window_task_configs = [self._window_configs[t.task_id] for t in window_tasks]
 
                 job_id = self.job_manager.submit_array_job(
                     experiment_id,
                     window_tasks,
                     window_task_configs,
                     max_parallel=max_parallel,
+                    dependency_job_ids=dependency_job_ids,
                 )
 
                 if job_id:
@@ -353,15 +413,22 @@ class ExperimentOrchestrator:
         else:
             # Submit individual jobs
             for task in pending_tasks:
-                if task.task_id not in self._window_configs:
+                if not prep_job_id and task.task_id not in self._window_configs:
                     logger.warning(f"No window config for task {task.task_id}")
                     stats.failed += 1
                     continue
 
+                # For jobs with prep dependency, use minimal config
+                if prep_job_id:
+                    window_config = {"task_id": task.task_id, "window_idx": task.window_idx, "seed": task.seed}
+                else:
+                    window_config = self._window_configs[task.task_id]
+
                 job_id = self.job_manager.submit_task(
                     experiment_id,
                     task,
-                    self._window_configs[task.task_id],
+                    window_config,
+                    dependency_job_ids=dependency_job_ids,
                 )
 
                 if job_id:
@@ -483,9 +550,15 @@ class ExperimentOrchestrator:
         self,
         experiment_id: str,
         max_retries: int = 3,
+        prep_job_id: Optional[str] = None,
     ) -> SubmissionStats:
         """
         Retry all failed/cancelled tasks.
+
+        Args:
+            experiment_id: Experiment identifier
+            max_retries: Maximum retry attempts per task
+            prep_job_id: Job ID of prep job to wait for (dependency)
 
         Returns:
             SubmissionStats for retry attempt
@@ -493,7 +566,8 @@ class ExperimentOrchestrator:
         config, progress, tasks = self.state_manager.load_experiment(experiment_id)
         stats = SubmissionStats()
 
-        if not self._window_configs:
+        # Only prepare locally if no prep job dependency
+        if not prep_job_id and not self._window_configs:
             self._window_configs = self.prepare_temporal_datasets(experiment_id)
 
         failed_tasks = [
@@ -506,10 +580,14 @@ class ExperimentOrchestrator:
             logger.info("No failed tasks eligible for retry")
             return stats
 
+        # Build dependency list
+        dependency_job_ids = [prep_job_id] if prep_job_id else None
+
         job_ids = self.job_manager.resubmit_failed_tasks(
             experiment_id,
-            self._window_configs,
+            self._window_configs if not prep_job_id else {},
             max_retries=max_retries,
+            dependency_job_ids=dependency_job_ids,
         )
 
         stats.submitted = len(job_ids)
