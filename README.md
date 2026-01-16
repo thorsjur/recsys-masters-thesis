@@ -2,6 +2,9 @@
 
 Codebase for evaluating temporal stability of content-based news recommender models
 
+> [!IMPORTANT]
+> DISCLAIMER: For this codebase I have at times used GitHub Copilot (primarily with the *Claude Opus 4.5* model) for code generation and suggestions. While I have reviewed, modified, and tested all generated code, please be aware that some parts may contain inaccuracies or suboptimal implementations.
+
 ## How It Works
 
 ![Architecture overview](./docs/diagrams/recsys-masters-thesis-overview-light.svg#gh-light-mode-only)
@@ -99,39 +102,8 @@ python run_stability_test.py \
     --seeds 42,123,456
 ```
 
-### 5. Run on Slurm (IDUN)
-
-```bash
-# Create experiment
-python run_slurm_experiment.py create \
-    --experiment-id bert_temporal_36h \
-    --model BERT \
-    --dataset mind_no_preprocessing \
-    --window-size 48 \
-    --window-ratio 36:12 \
-    --total-units 168 \
-    --granularity hour \
-    --window-stride 12 \
-    --seeds 42,123,456 \
-    --account <account> \
-    --partition gpu \
-    --gpus 1 \
-    --time-limit 04:00:00
-
-# Submit jobs
-python run_slurm_experiment.py submit bert_temporal_36h
-
-# Monitor
-python run_slurm_experiment.py status bert_temporal_36h
-
-# Retry failed
-python run_slurm_experiment.py retry bert_temporal_36h
-
-# Cancel all
-python run_slurm_experiment.py cancel bert_temporal_36h
-```
-
----
+> [!NOTE]
+> Even though the experiments can be ran locally, I define the individual experiments using shell files for better replicability and some extra info prints, with unique IDs. see `experiments/` for examples, and `experiments/experiment_runner.sh` for the common runner script.
 
 ## Configuration
 
@@ -154,8 +126,9 @@ bert_use_cache: true
 output/
 ├── slurm_scripts/          # Generated job scripts
 ├── slurm_logs/             # Stdout/stderr from jobs
-├── experiments/            # Experiment state JSON
-└── results/                # Evaluation metrics
+├── experiments/            # Experimental definitions
+└── results/                # Experiment results
+    └── experiments.jsonl   # The full results log
 
 log/                        # RecBole logs per model
 ```
