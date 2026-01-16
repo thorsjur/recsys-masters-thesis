@@ -1,0 +1,48 @@
+#!/bin/bash
+########################################################
+# IDUN HPC Job Script
+# Experiment: ${experiment_id}
+# Task: ${task_id}
+# Model: ${model}
+# Generated automatically - do not edit manually
+########################################################
+
+#SBATCH --job-name=${experiment_id}_${task_id}
+${slurm_directives}
+
+set -e  # Exit on first error
+
+echo "=========================================="
+echo "IDUN Job Information"
+echo "=========================================="
+echo "Job ID: $SLURM_JOB_ID"
+echo "Task ID: ${task_id}"
+echo "Experiment: ${experiment_id}"
+echo "Partition: $SLURM_JOB_PARTITION"
+echo "Node(s): $SLURM_JOB_NODELIST"
+echo "Cores: $SLURM_CPUS_PER_TASK"
+echo "Memory: ${memory}"
+echo "Start time: $(date)"
+echo "Working directory: $SLURM_SUBMIT_DIR"
+echo "=========================================="
+
+${env_setup}
+
+# Run the experiment
+echo "Starting experiment..."
+${python_cmd}
+
+EXIT_CODE=$?
+
+echo "=========================================="
+echo "Job completed"
+echo "End time: $(date)"
+echo "Exit code: $EXIT_CODE"
+echo "=========================================="
+
+# Print job efficiency hint
+echo ""
+echo "To check job efficiency after completion, run:"
+echo "  seff $SLURM_JOB_ID"
+
+exit $EXIT_CODE

@@ -15,6 +15,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
+from string import Template
 from typing import Dict, List, Optional, Tuple
 
 from slurm.state import (
@@ -57,9 +58,17 @@ class SlurmJobManager:
         self.scripts_dir = Path(scripts_dir)
         self.logs_dir = Path(logs_dir)
         self.dry_run = dry_run
+        self.templates_dir = Path(__file__).parent / "templates"
 
         self.scripts_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+
+    def _load_template(self, template_name: str) -> Template:
+        """Load a template file from the templates directory."""
+        template_path = self.templates_dir / template_name
+        if not template_path.exists():
+            raise FileNotFoundError(f"Template not found: {template_path}")
+        return Template(template_path.read_text())
 
     def generate_job_script(
         self,
@@ -81,55 +90,17 @@ class SlurmJobManager:
         # Build module loads and environment setup
         env_setup = self._build_environment_setup(config)
 
-        script_content = f"""#!/bin/bash
-########################################################
-# IDUN HPC Job Script
-# Experiment: {config.experiment_id}
-# Task: {task.task_id}
-# Model: {config.model}
-# Generated automatically - do not edit manually
-########################################################
-
-#SBATCH --job-name={config.experiment_id}_{task.task_id}
-{slurm_directives}
-
-set -e  # Exit on first error
-
-echo "=========================================="
-echo "IDUN Job Information"
-echo "=========================================="
-echo "Job ID: $SLURM_JOB_ID"
-echo "Task ID: {task.task_id}"
-echo "Experiment: {config.experiment_id}"
-echo "Partition: $SLURM_JOB_PARTITION"
-echo "Node(s): $SLURM_JOB_NODELIST"
-echo "Cores: $SLURM_CPUS_PER_TASK"
-echo "Memory: {config.memory}"
-echo "Start time: $(date)"
-echo "Working directory: $SLURM_SUBMIT_DIR"
-echo "=========================================="
-
-{env_setup}
-
-# Run the experiment
-echo "Starting experiment..."
-{python_cmd}
-
-EXIT_CODE=$?
-
-echo "=========================================="
-echo "Job completed"
-echo "End time: $(date)"
-echo "Exit code: $EXIT_CODE"
-echo "=========================================="
-
-# Print job efficiency hint
-echo ""
-echo "To check job efficiency after completion, run:"
-echo "  seff $SLURM_JOB_ID"
-
-exit $EXIT_CODE
-"""
+        # Load and render template
+        template = self._load_template("single_job.sh.template")
+        script_content = template.substitute(
+            experiment_id=config.experiment_id,
+            task_id=task.task_id,
+            model=config.model,
+            memory=config.memory,
+            slurm_directives=slurm_directives,
+            env_setup=env_setup,
+            python_cmd=python_cmd,
+        )
         with open(script_path, "w") as f:
             f.write(script_content)
 
@@ -473,71 +444,26 @@ exit $EXIT_CODE
 
         env_setup = self._build_environment_setup(config)
 
-        script_content = f"""#!/bin/bash
-########################################################
-# IDUN HPC Array Job Script
-# Experiment: {config.experiment_id}
-# Model: {config.model}
-# Tasks: {len(tasks)}
-# Generated automatically - do not edit manually
-########################################################
+        # Build optional arguments
+        description_arg = f'--description "{config.description}"' if config.description else ""
+        config_arg = f"--config {' '.join(config.config_files)}" if config.config_files else ""
+        extra_params = " ".join(config.params) if config.params else ""
 
-{chr(10).join(slurm_directives)}
-
-set -e
-
-echo "=========================================="
-echo "IDUN Array Job Information"
-echo "=========================================="
-echo "Array Job ID: $SLURM_ARRAY_JOB_ID"
-echo "Array Task ID: $SLURM_ARRAY_TASK_ID"
-echo "Experiment: {config.experiment_id}"
-echo "Partition: $SLURM_JOB_PARTITION"
-echo "Node: $SLURM_NODELIST"
-echo "Cores: $SLURM_CPUS_PER_TASK"
-echo "Start time: $(date)"
-echo "=========================================="
-
-{env_setup}
-
-# Read task configuration
-CONFIG_FILE="{config_file}"
-TASK_CONFIG=$(python -c "import json; configs=json.load(open('$CONFIG_FILE')); print(json.dumps(configs[$SLURM_ARRAY_TASK_ID]))")
-
-# Extract task parameters
-TASK_ID=$(echo "$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
-SEED=$(echo "$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.stdin)['seed'])")
-WINDOW_CONFIG=$(echo "$TASK_CONFIG" | python -c "import sys,json; print(json.dumps(json.load(sys.stdin)['window_config']))")
-
-echo "Task ID: $TASK_ID"
-echo "Seed: $SEED"
-echo ""
-
-# Run the experiment
-echo "Starting experiment..."
-python run_recbole.py \\
-    --model {config.model} \\
-    --dataset {config.dataset} \\
-    --data_path {config.data_path} \\
-    --experiment-id {config.experiment_id} \\
-    {f'--description "{config.description}"' if config.description else ''} \\
-    {f"--config {' '.join(config.config_files)}" if config.config_files else ''} \\
-    --window-info "$WINDOW_CONFIG" \\
-    --params seed=$SEED {' '.join(config.params) if config.params else ''}
-
-EXIT_CODE=$?
-
-echo "=========================================="
-echo "Job completed"
-echo "End time: $(date)"
-echo "Exit code: $EXIT_CODE"
-echo "=========================================="
-
-echo ""
-echo "To check job efficiency, run: seff ${{SLURM_ARRAY_JOB_ID}}_${{SLURM_ARRAY_TASK_ID}}"
-
-exit $EXIT_CODE
-"""
+        # Load and render template
+        template = self._load_template("array_job.sh.template")
+        script_content = template.substitute(
+            experiment_id=config.experiment_id,
+            model=config.model,
+            num_tasks=len(tasks),
+            slurm_directives="\n".join(slurm_directives),
+            env_setup=env_setup,
+            config_file=config_file,
+            dataset=config.dataset,
+            data_path=config.data_path,
+            description_arg=description_arg,
+            config_arg=config_arg,
+            extra_params=extra_params,
+        )
         with open(script_path, "w") as f:
             f.write(script_content)
 

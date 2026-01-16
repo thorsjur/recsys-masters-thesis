@@ -1,0 +1,64 @@
+#!/bin/bash
+########################################################
+# IDUN HPC Array Job Script
+# Experiment: ${experiment_id}
+# Model: ${model}
+# Tasks: ${num_tasks}
+# Generated automatically - do not edit manually
+########################################################
+
+${slurm_directives}
+
+set -e
+
+echo "=========================================="
+echo "IDUN Array Job Information"
+echo "=========================================="
+echo "Array Job ID: $SLURM_ARRAY_JOB_ID"
+echo "Array Task ID: $SLURM_ARRAY_TASK_ID"
+echo "Experiment: ${experiment_id}"
+echo "Partition: $SLURM_JOB_PARTITION"
+echo "Node: $SLURM_NODELIST"
+echo "Cores: $SLURM_CPUS_PER_TASK"
+echo "Start time: $(date)"
+echo "=========================================="
+
+${env_setup}
+
+# Read task configuration
+CONFIG_FILE="${config_file}"
+TASK_CONFIG=$(python -c "import json; configs=json.load(open('$CONFIG_FILE')); print(json.dumps(configs[$SLURM_ARRAY_TASK_ID]))")
+
+# Extract task parameters
+TASK_ID=$(echo "$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
+SEED=$(echo "$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.stdin)['seed'])")
+WINDOW_CONFIG=$(echo "$TASK_CONFIG" | python -c "import sys,json; print(json.dumps(json.load(sys.stdin)['window_config']))")
+
+echo "Task ID: $TASK_ID"
+echo "Seed: $SEED"
+echo ""
+
+# Run the experiment
+echo "Starting experiment..."
+python run_recbole.py \
+    --model ${model} \
+    --dataset ${dataset} \
+    --data_path ${data_path} \
+    --experiment-id ${experiment_id} \
+    ${description_arg} \
+    ${config_arg} \
+    --window-info "$WINDOW_CONFIG" \
+    --params seed=$SEED ${extra_params}
+
+EXIT_CODE=$?
+
+echo "=========================================="
+echo "Job completed"
+echo "End time: $(date)"
+echo "Exit code: $EXIT_CODE"
+echo "=========================================="
+
+echo ""
+echo "To check job efficiency, run: seff $${SLURM_ARRAY_JOB_ID}_$${SLURM_ARRAY_TASK_ID}"
+
+exit $EXIT_CODE
