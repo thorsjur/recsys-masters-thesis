@@ -33,6 +33,7 @@ dependencies:
   - pip
   - pip:
     - recbole==1.2.0 # 1.2.1 gives an error when trying to install dependencies
+    - filelock>=3.0.0 # For Slurm
     # Norwegian Spacy model
     - https://github.com/explosion/spacy-models/releases/download/nb_core_news_md-3.8.0/nb_core_news_md-3.8.0-py3-none-any.whl 
     # English Spacy model
