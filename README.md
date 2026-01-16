@@ -12,7 +12,7 @@ Codebase for evaluating temporal stability of content-based news recommender mod
 
 > **Figure 1:** High-level architecture of the codebase.
 
-1. **Data preparation** — `run_etl.py` uses the `loaders/` pipeline to convert raw MIND data into RecBole atomic files, optionally creating hour/day-level temporal splits
+1. **Data preparation** — `run_etl.py` uses the `loaders/` pipeline to convert raw MIND data into RecBole atomic files, optionally creating hour/day-level temporal splits. See [`dataset_registry.py`](./dataset_registry.py) for available datasets and configurations
 2. **Model execution** — `run_recbole.py` loads a model from `models/`, builds item embeddings from news text, and evaluates on the prepared dataset using RecBole's evaluation framework
 3. **Stability evaluation** — `run_stability_test.py` orchestrates sliding-window experiments: for each window, it builds a temporal benchmark file, runs the model with multiple seeds, and aggregates metrics
 
