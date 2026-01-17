@@ -18,6 +18,7 @@ from pathlib import Path
 from string import Template
 from typing import Dict, List, Optional, Tuple
 
+from slurm.slurm_constants import DEFAULT_CONDA_MODULE
 from slurm.state import (
     JobState,
     TaskInfo,
@@ -180,15 +181,13 @@ class SlurmJobManager:
             [
                 "# Load modules",
                 "module purge",
+                f"module load {DEFAULT_CONDA_MODULE}",
             ]
         )
 
         if config.modules:
             for module in config.modules:
                 lines.append(f"module load {module}")
-        else:
-            # Default Python module for IDUN if none specified
-            lines.append("# No modules specified - using conda environment")
 
         lines.extend(["module list", ""])
 
@@ -197,7 +196,6 @@ class SlurmJobManager:
             lines.extend(
                 [
                     "# Activate conda environment",
-                    "source $(conda info --base)/etc/profile.d/conda.sh",
                     f"conda activate {config.conda_env}",
                     'echo "Python: $(which python)"',
                     'echo "Python version: $(python --version)"',

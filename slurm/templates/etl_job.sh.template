@@ -1,0 +1,42 @@
+#!/bin/bash
+########################################################
+# IDUN HPC ETL Job Script
+# Config: ${config}
+# Generated automatically - do not edit manually
+########################################################
+
+#SBATCH --job-name=${job_name}
+${slurm_directives}
+
+set -e  # Exit on first error
+
+echo "=========================================="
+echo "IDUN ETL Job"
+echo "=========================================="
+echo "Job ID: $$SLURM_JOB_ID"
+echo "Config: ${config}"
+echo "Partition: $$SLURM_JOB_PARTITION"
+echo "Node: $$SLURM_JOB_NODELIST"
+echo "CPUs: $$SLURM_CPUS_PER_TASK"
+echo "Start time: $$(date)"
+echo "=========================================="
+
+# Working directory
+cd $$SLURM_SUBMIT_DIR
+echo "Working directory: $$(pwd)"
+
+${env_setup}
+
+# Run ETL pipeline
+echo "Starting ETL pipeline..."
+${etl_cmd}
+
+EXIT_CODE=$$?
+
+echo "=========================================="
+echo "ETL completed"
+echo "End time: $$(date)"
+echo "Exit code: $$EXIT_CODE"
+echo "=========================================="
+
+exit $$EXIT_CODE

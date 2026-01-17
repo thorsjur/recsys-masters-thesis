@@ -51,6 +51,7 @@ import logging
 import sys
 from pathlib import Path
 
+from slurm.slurm_constants import DEFAULT_CONDA_ENV
 from util.logging_config import setup_logging
 from slurm.state import StateManager, JobState
 from slurm.job_manager import SlurmJobManager
@@ -395,6 +396,7 @@ def _add_slurm_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--conda-env",
         type=str,
+        default=DEFAULT_CONDA_ENV,
         help="Conda environment to activate",
     )
 

@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from filelock import FileLock
 
+from slurm.slurm_constants import DEFAULT_CONDA_ENV
+
 logger = logging.getLogger(__name__)
 
 
@@ -112,7 +114,7 @@ class ExperimentConfig:
 
     # Module loading
     modules: List[str] = field(default_factory=list)
-    conda_env: Optional[str] = None
+    conda_env: Optional[str] = DEFAULT_CONDA_ENV
 
     # Email notifications
     mail_user: Optional[str] = None

@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 
+from slurm.slurm_constants import DEFAULT_CONDA_ENV
 from slurm.state import (
     JobState,
     ExperimentState,
@@ -137,7 +138,7 @@ class ExperimentOrchestrator:
         # Account is REQUIRED on IDUN
         account: str = "",
         modules: Optional[List[str]] = None,
-        conda_env: Optional[str] = None,
+        conda_env: Optional[str] = DEFAULT_CONDA_ENV,
         # Email notifications
         mail_user: Optional[str] = None,
         mail_type: str = "FAIL",
