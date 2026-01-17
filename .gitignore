@@ -1,6 +1,6 @@
 datasets/**
 output/logs/
-output/slurm_logs/
+output/slurm_*/
 
 __pycache__
 .vscode
