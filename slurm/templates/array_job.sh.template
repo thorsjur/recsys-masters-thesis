@@ -35,7 +35,7 @@ SEED=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.s
 WINDOW_CONFIG=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; print(json.dumps(json.load(sys.stdin)['window_config']))")
 
 # Extract benchmark_filename from window_config (required for temporal experiments)
-BENCHMARK_FILENAME=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; wc=json.load(sys.stdin).get('window_config',{}); print(wc.get('benchmark_filename',''))")
+BENCHMARK_FILENAME=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; wc=json.load(sys.stdin).get('window_config',{}); bf=wc.get('benchmark_filename'); print(json.dumps(bf,separators=(',',':')) if bf else '')")
 
 echo "Task ID: $$TASK_ID"
 echo "Seed: $$SEED"
