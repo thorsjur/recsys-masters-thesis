@@ -425,37 +425,27 @@ class ExperimentOrchestrator:
             self._window_configs = self.prepare_temporal_datasets(experiment_id)
 
         if use_array_jobs:
-            # Group by window for more efficient array jobs
-            window_groups: Dict[int, List[TaskInfo]] = {}
-            for task in pending_tasks:
-                if task.window_idx not in window_groups:
-                    window_groups[task.window_idx] = []
-                window_groups[task.window_idx].append(task)
+            if prep_job_id:
+                # Generate placeholder configs - actual data prepared by prep job
+                all_task_configs = [
+                    {"task_id": t.task_id, "window_idx": t.window_idx, "seed": t.seed} for t in pending_tasks
+                ]
+            else:
+                all_task_configs = [self._window_configs[t.task_id] for t in pending_tasks]
 
-            # Submit each window's tasks as an array job
-            for window_idx, window_tasks in window_groups.items():
-                # For jobs with prep dependency, window configs will be built by prep job
-                if prep_job_id:
-                    # Generate placeholder configs - actual data prepared by prep job
-                    window_task_configs = [
-                        {"task_id": t.task_id, "window_idx": t.window_idx, "seed": t.seed} for t in window_tasks
-                    ]
-                else:
-                    window_task_configs = [self._window_configs[t.task_id] for t in window_tasks]
+            job_id = self.job_manager.submit_array_job(
+                experiment_id,
+                pending_tasks,
+                all_task_configs,
+                max_parallel=max_parallel,
+                dependency_job_ids=dependency_job_ids,
+            )
 
-                job_id = self.job_manager.submit_array_job(
-                    experiment_id,
-                    window_tasks,
-                    window_task_configs,
-                    max_parallel=max_parallel,
-                    dependency_job_ids=dependency_job_ids,
-                )
-
-                if job_id:
-                    stats.submitted += len(window_tasks)
-                    stats.job_ids.append(job_id)
-                else:
-                    stats.failed += len(window_tasks)
+            if job_id:
+                stats.submitted += len(pending_tasks)
+                stats.job_ids.append(job_id)
+            else:
+                stats.failed += len(pending_tasks)
         else:
             # Submit individual jobs
             for task in pending_tasks:
