@@ -12,6 +12,7 @@ Handles the high-level workflow of:
 import logging
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 from slurm.slurm_constants import DEFAULT_CONDA_ENV
@@ -236,9 +237,14 @@ class ExperimentOrchestrator:
     def prepare_temporal_datasets(
         self,
         experiment_id: str,
+        save_to_file: bool = True,
     ) -> Dict[str, Dict]:
         """
         Prepare temporal dataset splits for all windows.
+
+        Args:
+            experiment_id: Experiment identifier
+            save_to_file: If True, save window configs to JSON file for array jobs
 
         Returns:
             Dictionary mapping task_id to window configuration
@@ -330,8 +336,47 @@ class ExperimentOrchestrator:
                 window_configs[task_id] = window_info
 
         self._window_configs = window_configs
+
+        # Persist configs to JSON file for array jobs
+        if save_to_file:
+            self._save_window_configs_to_file(experiment_id, config, tasks, window_configs)
+
         logger.info(f"Prepared {len(windows)} temporal windows")
         return window_configs
+
+    def _save_window_configs_to_file(
+        self,
+        experiment_id: str,
+        config: ExperimentConfig,
+        tasks: List[TaskInfo],
+        window_configs: Dict[str, Dict],
+    ) -> Path:
+        """
+        Save window configs to JSON file for array job consumption.
+        """
+        import json
+
+        # Use same path as job_manager uses for array job configs
+        scripts_dir = Path("output/slurm_scripts")
+        config_file = scripts_dir / experiment_id / f"{experiment_id}_array.json"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Build task configs in same format as job_manager expects
+        task_configs = []
+        for task in tasks:
+            task_config = {
+                "task_id": task.task_id,
+                "seed": task.seed,
+                "window_idx": task.window_idx,
+                "window_config": window_configs.get(task.task_id, {}),
+            }
+            task_configs.append(task_config)
+
+        with open(config_file, "w") as f:
+            json.dump(task_configs, f, indent=2)
+
+        logger.info(f"Saved window configs to {config_file}")
+        return config_file
 
     def submit_all(
         self,
