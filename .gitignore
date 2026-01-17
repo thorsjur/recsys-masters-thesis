@@ -1,5 +1,7 @@
 datasets/**
 output/logs/
+output/slurm_logs/
+
 __pycache__
 .vscode
 .ipynb_checkpoints
