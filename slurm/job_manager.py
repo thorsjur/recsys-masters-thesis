@@ -196,6 +196,7 @@ class SlurmJobManager:
             lines.extend(
                 [
                     "# Activate conda environment",
+                    "eval \"$(conda shell.bash hook)\"",
                     f"conda activate {config.conda_env}",
                     'echo "Python: $(which python)"',
                     'echo "Python version: $(python --version)"',

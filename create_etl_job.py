@@ -108,6 +108,7 @@ def create_etl_job_script(
             [
                 "",
                 "# Activate conda environment",
+                "eval \"$(conda shell.bash hook)\"",
                 f"conda activate {conda_env}",
                 'echo "Python: $(which python)"',
                 'echo "Python version: $(python --version)"',
