@@ -1,12 +1,13 @@
 from loaders.base_loader import DatasetConfig
 from loaders.mind_loader import MINDDataLoader
 from loaders.converters.mind_converter import MINDAtomicConverter
-from loaders.processing.recursive_pruner import RecursivePruner
-from loaders.processing.spacy_text_cleaner import SpacyTextCleaner
-from loaders.splitters.temporal_splitter import GlobalTemporalSplitter
 
 def get_mind_small_baseline():
     """MIND Small with standard preprocessing."""
+    
+    from loaders.processing.recursive_pruner import RecursivePruner
+    from loaders.processing.spacy_text_cleaner import SpacyTextCleaner
+    
     pipeline = [
         SpacyTextCleaner(target_col="title", output_col="title", batch_size=2000),
         SpacyTextCleaner(target_col="abstract", output_col="abstract", batch_size=100),
@@ -20,7 +21,7 @@ def get_mind_small_baseline():
         version='small',
         converter_class=MINDAtomicConverter,
         preprocessors=pipeline,
-        splitter=GlobalTemporalSplitter(ratios=[0.8, 0.1, 0.1])
+        splitter=None
     )
     
     return config, MINDDataLoader
@@ -36,7 +37,7 @@ def get_mind_no_preprocessing():
         version='small',
         converter_class=MINDAtomicConverter,
         preprocessors=pipeline,
-        splitter=GlobalTemporalSplitter(ratios=[0.8, 0.1, 0.1])
+        splitter=None
     )
     
     return config, MINDDataLoader
