@@ -66,3 +66,13 @@ DATASET_REGISTRY = {
     "mind_small_no_preprocessing": get_mind_no_preprocessing,
     "mind_large_no_preprocessing": get_mind_large_no_preprocessing,
 }
+
+def get_available_datasets() -> list[str]:
+    """Get list of available dataset configurations."""
+    return list(DATASET_REGISTRY.keys())
+
+def get_dataset_description(name: str) -> str:
+    """Get description of a dataset configuration."""
+    if name not in DATASET_REGISTRY:
+        raise ValueError(f"Unknown dataset: {name}")
+    return DATASET_REGISTRY[name].__doc__ or "No description available"

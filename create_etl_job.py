@@ -21,12 +21,11 @@ from pathlib import Path
 from string import Template
 from typing import Optional
 
-import dataset_registry
+from dataset_registry import get_available_datasets
 from slurm.slurm_constants import DEFAULT_CONDA_ENV, DEFAULT_CONDA_MODULE
 
 
-AVAILABLE_CONFIGS = dataset_registry.DATASET_REGISTRY.keys()
-
+AVAILABLE_CONFIGS = get_available_datasets()
 TEMPLATE_DIR = Path(__file__).parent / "slurm" / "templates"
 
 

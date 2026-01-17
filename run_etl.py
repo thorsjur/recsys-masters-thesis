@@ -1,7 +1,7 @@
 import argparse
 import sys
 import logging
-from dataset_registry import DATASET_REGISTRY
+from dataset_registry import DATASET_REGISTRY, get_available_datasets
 from util.logging_config import setup_logging
 
 def main():
@@ -12,8 +12,8 @@ def main():
         '--config', 
         type=str, 
         required=True, 
-        choices=DATASET_REGISTRY.keys(),
-        help=f"Specify the dataset configuration key. Available options: {list(DATASET_REGISTRY.keys())}"
+        choices=get_available_datasets(),
+        help=f"Specify the dataset configuration key. Available options: {get_available_datasets()}"
     )
     
     parser.add_argument('--debug', action='store_true', help="Enable debug-level logging.")
