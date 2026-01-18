@@ -238,8 +238,7 @@ class SlurmJobManager:
 
     def generate_prep_job_script(self, config: ExperimentConfig) -> Path:
         """Generate a Slurm job script for dataset preparation."""
-        script_name = f"{config.experiment_id}_prep.sh"
-        script_path = self.scripts_dir / config.experiment_id / script_name
+        script_path = self.scripts_dir / config.experiment_id / "prep.sh"
         script_path.parent.mkdir(parents=True, exist_ok=True)
 
         slurm_directives = self._build_prep_slurm_directives(config)
@@ -536,7 +535,9 @@ class SlurmJobManager:
         )
 
         # Step 1: Submit warmup task (single task)
-        warmup_script = self._generate_array_script(config, [warmup_task], [warmup_config], suffix="_warmup")
+        warmup_script = self._generate_array_script(
+            config, [warmup_task], [warmup_config], script_name="warmup.sh"
+        )
 
         warmup_cmd = ["sbatch", "--array=0"]
         if dependency_job_ids:
@@ -576,7 +577,9 @@ class SlurmJobManager:
             logger.info("No remaining tasks after warmup")
             return warmup_job_id
 
-        parallel_script = self._generate_array_script(config, remaining_tasks, remaining_configs, suffix="_parallel")
+        parallel_script = self._generate_array_script(
+            config, remaining_tasks, remaining_configs, script_name="parallel.sh"
+        )
 
         parallel_array_spec = f"0-{len(remaining_tasks)-1}"
         if max_parallel and max_parallel < len(remaining_tasks):
@@ -628,30 +631,22 @@ class SlurmJobManager:
         config: ExperimentConfig,
         tasks: List[TaskInfo],
         window_configs: List[Dict],
-        suffix: str = "",
+        script_name: str = "array.sh",
     ) -> Path:
-        """Generate a Slurm array job script for IDUN cluster."""
+        """
+        Generate a Slurm array job script for IDUN cluster.
+        """
         import json
 
-        script_name = f"{config.experiment_id}_array{suffix}.sh"
+        # Simplified naming - files are already in experiment folder
         script_path = self.scripts_dir / config.experiment_id / script_name
         script_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create task config file (JSON array)
-        task_configs = []
-        for task, window_config in zip(tasks, window_configs):
-            task_configs.append(
-                {
-                    "task_id": task.task_id,
-                    "seed": task.seed,
-                    "window_idx": task.window_idx,
-                    "window_config": window_config,
-                }
-            )
+        # Master config file path (created by prep job)
+        config_file = self.scripts_dir / config.experiment_id / "window_config.json"
 
-        config_file = script_path.with_suffix(".json")
-        with open(config_file, "w") as f:
-            json.dump(task_configs, f, indent=2)
+        # Build task ID list for this array job (maps array index -> task_id)
+        task_id_list = [task.task_id for task in tasks]
 
         log_dir = self.logs_dir / config.experiment_id
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -694,6 +689,9 @@ class SlurmJobManager:
         config_arg = f"--config {' '.join(config.config_files)}" if config.config_files else ""
         extra_params = " ".join(config.params) if config.params else ""
 
+        # Build task ID list as bash array (maps array index -> task_id)
+        task_id_list_bash = " ".join(f'"{tid}"' for tid in task_id_list)
+
         # Load and render template
         template = self._load_template("array_job.sh.template")
         script_content = template.substitute(
@@ -703,6 +701,7 @@ class SlurmJobManager:
             slurm_directives="\n".join(slurm_directives),
             env_setup=env_setup,
             config_file=config_file,
+            task_id_list=task_id_list_bash,
             dataset=config.dataset,
             data_path=config.data_path,
             description_arg=description_arg,

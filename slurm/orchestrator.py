@@ -356,21 +356,19 @@ class ExperimentOrchestrator:
         """
         import json
 
-        # Use same path as job_manager uses for array job configs
         scripts_dir = Path("output/slurm_scripts")
-        config_file = scripts_dir / experiment_id / f"{experiment_id}_array.json"
+        config_file = scripts_dir / experiment_id / "window_config.json"
         config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Build task configs in same format as job_manager expects
-        task_configs = []
+        # Build task configs keyed by task_id for easy lookup
+        task_configs = {}
         for task in tasks:
-            task_config = {
+            task_configs[task.task_id] = {
                 "task_id": task.task_id,
                 "seed": task.seed,
                 "window_idx": task.window_idx,
                 "window_config": window_configs.get(task.task_id, {}),
             }
-            task_configs.append(task_config)
 
         with open(config_file, "w") as f:
             json.dump(task_configs, f, indent=2)

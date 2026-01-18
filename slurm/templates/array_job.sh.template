@@ -25,12 +25,15 @@ echo "=========================================="
 
 ${env_setup}
 
-# Read task configuration
+# Task ID mapping (array index -> task_id in master config)
+TASK_IDS=(${task_id_list})
+TASK_ID=$${TASK_IDS[$$SLURM_ARRAY_TASK_ID]}
+
+# Read task configuration from master config file (keyed by task_id)
 CONFIG_FILE="${config_file}"
-TASK_CONFIG=$$(python -c "import json; configs=json.load(open('$$CONFIG_FILE')); print(json.dumps(configs[$$SLURM_ARRAY_TASK_ID]))")
+TASK_CONFIG=$$(python -c "import json; configs=json.load(open('$$CONFIG_FILE')); print(json.dumps(configs['$$TASK_ID']))")
 
 # Extract task parameters
-TASK_ID=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.stdin)['task_id'])")
 SEED=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; print(json.load(sys.stdin)['seed'])")
 WINDOW_CONFIG=$$(echo "$$TASK_CONFIG" | python -c "import sys,json; print(json.dumps(json.load(sys.stdin)['window_config']))")
 
