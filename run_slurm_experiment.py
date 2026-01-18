@@ -241,6 +241,11 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show stderr instead of stdout",
     )
+    output_parser.add_argument(
+        "-p", "--pager",
+        action="store_true",
+        help="Open output in less -R for interactive viewing",
+    )
 
     return parser
 
@@ -616,15 +621,26 @@ def cmd_delete(args, orchestrator: ExperimentOrchestrator):
 
 def cmd_output(args, orchestrator: ExperimentOrchestrator):
     """Handle output command."""
-    stdout, stderr = orchestrator.job_manager.get_job_output(
-        args.experiment_id,
-        args.task_id,
-    )
+    import subprocess
+    
+    # Get file paths directly from task info
+    config, progress, tasks = orchestrator.state_manager.load_experiment(args.experiment_id)
+    task = next((t for t in tasks if t.task_id == args.task_id), None)
+    if not task:
+        print(f"Task {args.task_id} not found")
+        return
 
-    if args.stderr:
-        print(stderr if stderr else "No stderr output")
+    file_path = task.error_file if args.stderr else task.output_file
+    file_type = "stderr" if args.stderr else "stdout"
+
+    if not file_path or not Path(file_path).exists():
+        print(f"No {file_type} file found for task {args.task_id}")
+        return
+
+    if args.pager:
+        subprocess.run(["less", "-R", file_path])
     else:
-        print(stdout if stdout else "No stdout output")
+        print(Path(file_path).read_text())
 
 
 def main():
