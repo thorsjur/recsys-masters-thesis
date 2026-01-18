@@ -246,6 +246,11 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open output in less -R for interactive viewing",
     )
+    output_parser.add_argument(
+        "-f", "--follow",
+        action="store_true",
+        help="Follow output (like tail -f)",
+    )
 
     return parser
 
@@ -637,6 +642,9 @@ def cmd_output(args, orchestrator: ExperimentOrchestrator):
         print(f"No {file_type} file found for task {args.task_id}")
         return
 
+    if args.follow:
+        subprocess.run(["tail", "-f", "-n", "50", file_path])
+        return
     if args.pager:
         subprocess.run(["less", "-R", file_path])
     else:

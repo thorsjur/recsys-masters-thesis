@@ -799,25 +799,6 @@ class SlurmJobManager:
         logger.info(f"Cancelled {cancelled} jobs for experiment {experiment_id}")
         return cancelled
 
-    def get_job_output(self, experiment_id: str, task_id: str) -> Tuple[str, str]:
-        """Get stdout and stderr from a completed job."""
-        config, progress, tasks = self.state_manager.load_experiment(experiment_id)
-
-        task = next((t for t in tasks if t.task_id == task_id), None)
-        if not task:
-            raise ValueError(f"Task {task_id} not found")
-
-        stdout = ""
-        stderr = ""
-
-        if task.output_file and Path(task.output_file).exists():
-            stdout = Path(task.output_file).read_text()
-
-        if task.error_file and Path(task.error_file).exists():
-            stderr = Path(task.error_file).read_text()
-
-        return stdout, stderr
-
     def resubmit_failed_tasks(
         self,
         experiment_id: str,
