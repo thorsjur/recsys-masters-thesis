@@ -93,6 +93,11 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Submit jobs immediately after creation",
     )
     create_parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help="Run first task of each window first to warm caches, then parallelize",
+    )
+    create_parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite existing experiment with same ID",
@@ -119,6 +124,11 @@ def setup_parser() -> argparse.ArgumentParser:
         type=int,
         default=10,
         help="Maximum concurrent jobs for array jobs (default: 10)",
+    )
+    submit_parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help="Run first task of each window first to warm caches, then parallelize",
     )
 
     # === STATUS command ===
@@ -454,7 +464,10 @@ def cmd_create(args, orchestrator: ExperimentOrchestrator):
 
     if args.submit:
         print("Submitting prep job and experiment tasks...")
-        stats = orchestrator.submit_with_prep(args.experiment_id)
+        stats = orchestrator.submit_with_prep(
+            args.experiment_id,
+            warmup=args.warmup,
+        )
         print(f"Submitted {stats.submitted} tasks (prep job + {stats.submitted} experiment jobs)")
         if stats.job_ids:
             print(f"Job IDs: {', '.join(stats.job_ids)}")
@@ -477,6 +490,7 @@ def cmd_submit(args, orchestrator: ExperimentOrchestrator):
             args.experiment_id,
             use_array_jobs=not args.no_array,
             max_parallel=args.max_parallel,
+            warmup=args.warmup,
         )
 
     print(f"Submitted: {stats.submitted}, Skipped: {stats.skipped}, Failed: {stats.failed}")

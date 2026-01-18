@@ -196,7 +196,7 @@ class SlurmJobManager:
             lines.extend(
                 [
                     "# Activate conda environment",
-                    "eval \"$(conda shell.bash hook)\"",
+                    'eval "$(conda shell.bash hook)"',
                     f"conda activate {config.conda_env}",
                     'echo "Python: $(which python)"',
                     'echo "Python version: $(python --version)"',
@@ -413,18 +413,50 @@ class SlurmJobManager:
         window_configs: List[Dict],
         max_parallel: int = 10,
         dependency_job_ids: Optional[List[str]] = None,
+        warmup: bool = False,
     ) -> Optional[str]:
         """
         Submit multiple tasks as a Slurm array job.
-
-        Returns:
-            Slurm job ID if successful, None otherwise
         """
         if len(tasks) != len(window_configs):
             raise ValueError("Number of tasks must match number of window configs")
 
+        if not tasks:
+            logger.warning("No tasks to submit")
+            return None
+
         config, progress, all_tasks = self.state_manager.load_experiment(experiment_id)
 
+        if warmup and len(tasks) > 1:
+            return self._submit_array_job_with_warmup(
+                experiment_id,
+                config,
+                tasks,
+                window_configs,
+                max_parallel,
+                dependency_job_ids,
+            )
+
+        # Standard submission (no warmup)
+        return self._submit_array_job_standard(
+            experiment_id,
+            config,
+            tasks,
+            window_configs,
+            max_parallel,
+            dependency_job_ids,
+        )
+
+    def _submit_array_job_standard(
+        self,
+        experiment_id: str,
+        config: ExperimentConfig,
+        tasks: List[TaskInfo],
+        window_configs: List[Dict],
+        max_parallel: int,
+        dependency_job_ids: Optional[List[str]],
+    ) -> Optional[str]:
+        """Submit a standard array job without warmup."""
         # Generate array job script
         script_path = self._generate_array_script(config, tasks, window_configs)
 
@@ -476,16 +508,126 @@ class SlurmJobManager:
             logger.error(f"Failed to submit array job: {e.stderr}")
             return None
 
+    def _submit_array_job_with_warmup(
+        self,
+        experiment_id: str,
+        config: ExperimentConfig,
+        tasks: List[TaskInfo],
+        window_configs: List[Dict],
+        max_parallel: int,
+        dependency_job_ids: Optional[List[str]],
+    ) -> Optional[str]:
+        """
+        Submit array job with warmup pattern.
+
+        Runs the first task alone to warm caches (precompute embeddings, etc.),
+        then runs all remaining tasks in parallel after warmup completes.
+        """
+        # First task is warmup, rest are parallel
+        warmup_task = tasks[0]
+        warmup_config = window_configs[0]
+        remaining_tasks = tasks[1:]
+        remaining_configs = window_configs[1:]
+
+        logger.info(
+            f"Warmup submission: 1 warmup task ({warmup_task.task_id}), " f"{len(remaining_tasks)} parallel tasks"
+        )
+
+        # Step 1: Submit warmup task (single task)
+        warmup_script = self._generate_array_script(config, [warmup_task], [warmup_config], suffix="_warmup")
+
+        warmup_cmd = ["sbatch", "--array=0"]
+        if dependency_job_ids:
+            dep_str = ":".join(dependency_job_ids)
+            warmup_cmd.extend(["--dependency", f"afterok:{dep_str}"])
+        warmup_cmd.append(str(warmup_script))
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would submit warmup job: {' '.join(warmup_cmd)}")
+            warmup_job_id = f"dry_run_warmup_{experiment_id}"
+        else:
+            try:
+                result = subprocess.run(warmup_cmd, capture_output=True, text=True, check=True)
+                match = re.search(r"Submitted batch job (\d+)", result.stdout)
+                if not match:
+                    logger.error(f"Could not parse warmup job ID from: {result.stdout}")
+                    return None
+                warmup_job_id = match.group(1)
+                logger.info(f"Submitted warmup job {warmup_job_id} (task: {warmup_task.task_id})")
+
+                # Update warmup task state
+                self.state_manager.update_task(
+                    experiment_id,
+                    warmup_task.task_id,
+                    state=JobState.SUBMITTED,
+                    slurm_job_id=f"{warmup_job_id}_0",
+                    submit_time=datetime.now().isoformat(),
+                )
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to submit warmup job: {e.stderr}")
+                return None
+
+        # Step 2: Submit remaining tasks with dependency on warmup job
+        if not remaining_tasks:
+            logger.info("No remaining tasks after warmup")
+            return warmup_job_id
+
+        parallel_script = self._generate_array_script(config, remaining_tasks, remaining_configs, suffix="_parallel")
+
+        parallel_array_spec = f"0-{len(remaining_tasks)-1}"
+        if max_parallel and max_parallel < len(remaining_tasks):
+            parallel_array_spec += f"%{max_parallel}"
+
+        parallel_cmd = [
+            "sbatch",
+            f"--array={parallel_array_spec}",
+            f"--dependency=afterok:{warmup_job_id}",
+        ]
+        parallel_cmd.append(str(parallel_script))
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would submit parallel job: {' '.join(parallel_cmd)}")
+            parallel_job_id = f"dry_run_parallel_{experiment_id}"
+        else:
+            try:
+                result = subprocess.run(parallel_cmd, capture_output=True, text=True, check=True)
+                match = re.search(r"Submitted batch job (\d+)", result.stdout)
+                if not match:
+                    logger.error(f"Could not parse parallel job ID from: {result.stdout}")
+                    return warmup_job_id  # At least warmup was submitted
+                parallel_job_id = match.group(1)
+                logger.info(
+                    f"Submitted parallel job {parallel_job_id} with {len(remaining_tasks)} tasks "
+                    f"(depends on warmup job {warmup_job_id})"
+                )
+
+                # Update remaining task states
+                for i, task in enumerate(remaining_tasks):
+                    self.state_manager.update_task(
+                        experiment_id,
+                        task.task_id,
+                        state=JobState.SUBMITTED,
+                        slurm_job_id=f"{parallel_job_id}_{i}",
+                        submit_time=datetime.now().isoformat(),
+                    )
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to submit parallel job: {e.stderr}")
+                return warmup_job_id  # At least warmup was submitted
+
+        # Return parallel job ID as the "main" job
+        return parallel_job_id
+
     def _generate_array_script(
         self,
         config: ExperimentConfig,
         tasks: List[TaskInfo],
         window_configs: List[Dict],
+        suffix: str = "",
     ) -> Path:
         """Generate a Slurm array job script for IDUN cluster."""
         import json
 
-        script_name = f"{config.experiment_id}_array.sh"
+        script_name = f"{config.experiment_id}_array{suffix}.sh"
         script_path = self.scripts_dir / config.experiment_id / script_name
         script_path.parent.mkdir(parents=True, exist_ok=True)
 

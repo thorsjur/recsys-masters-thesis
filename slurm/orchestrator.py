@@ -83,11 +83,10 @@ class ExperimentOrchestrator:
         experiment_id: str,
         use_array_jobs: bool = True,
         max_parallel: int = 10,
+        warmup: bool = False,
     ) -> SubmissionStats:
         """
         Submit prep job first, then all tasks with dependency.
-
-        This is the recommended method for HPC submission.
         """
         # Submit prep job first
         prep_job_id = self.submit_prep_job(experiment_id)
@@ -104,6 +103,7 @@ class ExperimentOrchestrator:
             use_array_jobs=use_array_jobs,
             max_parallel=max_parallel,
             prep_job_id=prep_job_id,
+            warmup=warmup,
         )
 
         # Add prep job to stats
@@ -385,19 +385,10 @@ class ExperimentOrchestrator:
         max_parallel: int = 10,
         skip_prepared: bool = True,
         prep_job_id: Optional[str] = None,
+        warmup: bool = False,
     ) -> SubmissionStats:
         """
         Submit all pending tasks to Slurm.
-
-        Args:
-            experiment_id: Experiment identifier
-            use_array_jobs: Whether to use Slurm array jobs (more efficient)
-            max_parallel: Maximum concurrent jobs for array jobs
-            skip_prepared: Skip already submitted/completed tasks
-            prep_job_id: Job ID of prep job to wait for (dependency)
-
-        Returns:
-            SubmissionStats with counts and job IDs
         """
         config, progress, tasks = self.state_manager.load_experiment(experiment_id)
         stats = SubmissionStats()
@@ -439,6 +430,7 @@ class ExperimentOrchestrator:
                 all_task_configs,
                 max_parallel=max_parallel,
                 dependency_job_ids=dependency_job_ids,
+                warmup=warmup,
             )
 
             if job_id:
