@@ -54,44 +54,78 @@ class BERT(NewsEmbeddingRecommender):
         model.to(self.device)
         model.eval()
 
-        all_embs = []
+        # Use memory-mapped file to avoid OOM on large datasets
+        import numpy as np
+        import tempfile
+        
+        # Get embedding dimension from model config
+        embed_dim = model.config.hidden_size
+        
+        # Create memory-mapped array for incremental writes
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mmap')
+        temp_path = temp_file.name
+        temp_file.close()
+        
+        mmap_array = np.memmap(
+            temp_path, 
+            dtype='float32', 
+            mode='w+', 
+            shape=(self.n_items, embed_dim)
+        )
 
-        with torch.no_grad():
-            for start in tqdm(
-                range(0, self.n_items, self.batch_size),
-                desc="Encoding items with BERT",
-                unit="item",
-            ):
-                end = min(start + self.batch_size, self.n_items)
+        try:
+            with torch.no_grad():
+                for start in tqdm(
+                    range(0, self.n_items, self.batch_size),
+                    desc="Encoding items with BERT",
+                    unit="batch",
+                ):
+                    end = min(start + self.batch_size, self.n_items)
 
-                texts = [self._get_item_text(dataset, idx) or "" for idx in range(start, end)]
+                    texts = [self._get_item_text(dataset, idx) or "" for idx in range(start, end)]
 
-                encoded = tokenizer(
-                    texts,
-                    padding=True,
-                    truncation=True,
-                    max_length=self.max_length,
-                    return_tensors="pt",
-                )
-                encoded = {k: v.to(self.device) for k, v in encoded.items()}
+                    encoded = tokenizer(
+                        texts,
+                        padding=True,
+                        truncation=True,
+                        max_length=self.max_length,
+                        return_tensors="pt",
+                    )
+                    encoded = {k: v.to(self.device) for k, v in encoded.items()}
 
-                outputs = model(**encoded)
-                hidden = outputs.last_hidden_state
+                    outputs = model(**encoded)
+                    hidden = outputs.last_hidden_state
 
-                if self.pooling == "cls":
-                    emb = hidden[:, 0, :]
-                elif self.pooling == "mean":
-                    mask = encoded["attention_mask"].unsqueeze(-1)
-                    masked_hidden = hidden * mask
-                    summed = masked_hidden.sum(dim=1)
-                    counts = mask.sum(dim=1).clamp(min=1)
-                    emb = summed / counts
-                else:
-                    raise ValueError(f"Unknown bert_pooling: {self.pooling}")
+                    if self.pooling == "cls":
+                        emb = hidden[:, 0, :]
+                    elif self.pooling == "mean":
+                        mask = encoded["attention_mask"].unsqueeze(-1)
+                        masked_hidden = hidden * mask
+                        summed = masked_hidden.sum(dim=1)
+                        counts = mask.sum(dim=1).clamp(min=1)
+                        emb = summed / counts
+                    else:
+                        raise ValueError(f"Unknown bert_pooling: {self.pooling}")
 
-                all_embs.append(emb.cpu())
+                    # Write directly to memory-mapped array (avoids RAM accumulation)
+                    mmap_array[start:end] = emb.cpu().numpy()
+                    
+                    # Periodically clear GPU cache to prevent fragmentation
+                    if start % (self.batch_size * 50) == 0:
+                        torch.cuda.empty_cache()
 
-        item_embeddings = torch.cat(all_embs, dim=0)
+            # Flush to disk and load as tensor
+            mmap_array.flush()
+            item_embeddings = torch.from_numpy(np.array(mmap_array))
+            
+        finally:
+            # Clean up memory-mapped file
+            del mmap_array
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
         assert item_embeddings.shape[0] == self.n_items, (
             f"Expected {self.n_items} item embeddings, " f"got {item_embeddings.shape[0]}"
         )
