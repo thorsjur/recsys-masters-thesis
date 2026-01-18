@@ -498,6 +498,8 @@ class SlurmJobManager:
                         state=JobState.SUBMITTED,
                         slurm_job_id=f"{job_id}_{i}",
                         submit_time=datetime.now().isoformat(),
+                        output_file=str(self.logs_dir / config.experiment_id / f"{job_id}_{i}.out"),
+                        error_file=str(self.logs_dir / config.experiment_id / f"{job_id}_{i}.err"),
                     )
                 return job_id
             else:
@@ -562,6 +564,8 @@ class SlurmJobManager:
                     state=JobState.SUBMITTED,
                     slurm_job_id=f"{warmup_job_id}_0",
                     submit_time=datetime.now().isoformat(),
+                    output_file=str(self.logs_dir / config.experiment_id / f"{warmup_job_id}_0.out"),
+                    error_file=str(self.logs_dir / config.experiment_id / f"{warmup_job_id}_0.err"),
                 )
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to submit warmup job: {e.stderr}")
@@ -609,6 +613,8 @@ class SlurmJobManager:
                         state=JobState.SUBMITTED,
                         slurm_job_id=f"{parallel_job_id}_{i}",
                         submit_time=datetime.now().isoformat(),
+                        output_file=str(self.logs_dir / config.experiment_id / f"{parallel_job_id}_{i}.out"),
+                        error_file=str(self.logs_dir / config.experiment_id / f"{parallel_job_id}_{i}.err"),
                     )
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to submit parallel job: {e.stderr}")
@@ -663,8 +669,8 @@ class SlurmJobManager:
             f"#SBATCH --cpus-per-task={config.cpus_per_task}",
             f"#SBATCH --mem={config.memory}",
             f"#SBATCH --job-name={config.experiment_id}_array",
-            f"#SBATCH --output={log_dir}/%x_%A_%a.out",
-            f"#SBATCH --error={log_dir}/%x_%A_%a.err",
+            f"#SBATCH --output={log_dir}/%A_%a.out",
+            f"#SBATCH --error={log_dir}/%A_%a.err",
         ]
 
         # GPU configuration for IDUN
