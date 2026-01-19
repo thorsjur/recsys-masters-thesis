@@ -20,33 +20,28 @@ from util.dataset_analysis import collect_recbole_dataset_stats, format_dataset_
 
 def get_model_class(model_name):
     """Dynamically import model class."""
+    
+    model_lower = model_name.lower()
+    
     try:
-        module = import_module(f"models.{model_name.lower()}")
+        module = import_module(f"models.{model_lower}")
         return getattr(module, model_name)
     except (ImportError, AttributeError):
         pass
 
+    # Try to load from recbole models, this needs to be expanded if other models
+    # are to be used.
     model_file_map = {
-        "Pop": "pop.py",
-        "Random": "random.py",
+        "pop": ("recbole.model.general_recommender", "Pop"),
     }
 
-    if model_name in model_file_map:
+    if model_lower in model_file_map:
         try:
-            import recbole
-
-            recbole_path = Path(recbole.__file__).parent
-            model_file = recbole_path / "model" / "general_recommender" / model_file_map[model_name]
-
-            if model_file.exists():
-                # Load module directly from file
-                spec = importlib.util.spec_from_file_location(f"recbole_model_{model_name}", model_file)
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    sys.modules[f"recbole_model_{model_name}"] = module
-                    spec.loader.exec_module(module)
-                    return getattr(module, model_name)
+            category, model = model_file_map[model_lower]
+            module = import_module(category)
+            return getattr(module, model)
         except Exception as e:
+            print(e)
             pass
 
     raise ImportError(f"Could not find model '{model_name}' in custom models or RecBole")
