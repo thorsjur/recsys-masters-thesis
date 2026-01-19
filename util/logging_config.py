@@ -18,6 +18,7 @@ class PrintCaptureStream:
         self.logger = logger
         self.level = level
         self.original_stream = original_stream
+        self.buffer = ""
 
     def write(self, message: str):
         if message and "\r" in message:
@@ -25,10 +26,21 @@ class PrintCaptureStream:
                 self.original_stream.write(message)
                 self.original_stream.flush()
             return
-        if message.strip():
-            self.logger.log(self.level, message.strip())
+        
+        # Buffer the message until we get a newline
+        self.buffer += message
+        
+        # Process complete lines
+        while "\n" in self.buffer:
+            line, self.buffer = self.buffer.split("\n", 1)
+            if line.strip():
+                self.logger.log(self.level, line.rstrip())
 
     def flush(self):
+        # Log any remaining buffered content
+        if self.buffer.strip():
+            self.logger.log(self.level, self.buffer.rstrip())
+            self.buffer = ""
         if self.original_stream:
             self.original_stream.flush()
 
