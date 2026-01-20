@@ -20,7 +20,7 @@ benchmark_filename: ['train', 'valid', 'test']
 
 eval_args:
   split: {'LS': 'valid_and_test'}
-  group_by: none
+  group_by: user
   order: TO
   mode: {'valid': 'uni4', 'test': 'uni4'}
 

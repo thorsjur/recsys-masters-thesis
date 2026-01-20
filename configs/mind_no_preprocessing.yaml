@@ -22,7 +22,7 @@ benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']
 # pre-generated splits from ETL
 eval_args:
   split: {'LS': 'valid_and_test'}
-  group_by: none
+  group_by: user
   order: TO
   mode: {'valid': 'uni4', 'test': 'uni4'}
 
