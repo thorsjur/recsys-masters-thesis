@@ -6,6 +6,7 @@ from importlib import import_module
 import importlib.util
 import sys
 from pathlib import Path
+import uuid
 
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
@@ -106,8 +107,11 @@ def main():
 
     config_dict = {
         "data_path": args.data_path,
+        
+        # To prevent clashes when running in parallel, we use unique checkpoint dirs
+        "checkpoint_dir": f"output/checkpoints/{args.experiment_id}/{uuid.uuid4().hex[:8]}",
     }
-
+    
     if args.params:
         for param in args.params:
             key, value = param.split("=")
