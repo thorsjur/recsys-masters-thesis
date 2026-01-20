@@ -1,6 +1,7 @@
 datasets/**
 output/logs/
 output/slurm_*/
+output/checkpoints/
 
 __pycache__
 .vscode
