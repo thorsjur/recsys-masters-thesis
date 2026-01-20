@@ -10,10 +10,10 @@ from loaders.splitters.base_splitter import BaseSplitter
 @dataclass
 class DatasetConfig:
     raw_path: str
-    output_dir: str
     dataset_name: str
     version: str
     converter_class: Type[BaseAtomicConverter]
+    output_dir: str = './datasets/atomic_files'
     preprocessors: List[BasePreprocessor] = field(default_factory=list)
     splitter: Optional[BaseSplitter] = None
     spacy_model: str = "en_core_web_sm"

@@ -16,7 +16,6 @@ def get_mind_small_baseline():
     
     config = DatasetConfig(
         raw_path='./datasets/MINDsmall_train',
-        output_dir='./datasets/atomic_files',
         dataset_name='mind_small',
         version='small',
         converter_class=MINDAtomicConverter,
@@ -32,7 +31,6 @@ def get_mind_no_preprocessing():
     
     config = DatasetConfig(
         raw_path='./datasets/MINDsmall_train',
-        output_dir='./datasets/atomic_files',
         dataset_name='mind_no_preprocessing',
         version='small',
         converter_class=MINDAtomicConverter,
@@ -48,7 +46,6 @@ def get_mind_large_no_preprocessing():
     
     config = DatasetConfig(
         raw_path='./datasets/MINDlarge',
-        output_dir='./datasets/atomic_files',
         dataset_name='mind_large',
         version='large',
         converter_class=MINDAtomicConverter,
@@ -61,9 +58,37 @@ def get_mind_large_no_preprocessing():
     
     return config, MINDDataLoader
 
+
+def get_mind_small_minor_preprocessing():
+    """MIND Small with minor preprocessing."""
+    from loaders.processing.recursive_pruner import RecursivePruner
+    from loaders.processing.value_filter import ValueFilter
+    from loaders.processing.base_preprocessor import BasePreprocessor
+    
+    pipeline: list[BasePreprocessor] = [
+        # To reduce data set size, we only keep actual interactions and not negatives
+        # in impressions. For future experiments we might want to include negative interactions.
+        ValueFilter(col_name="label", valid_values=[1]),
+        
+        # Minimal pruning to ensure all items and users have at least one interaction
+        RecursivePruner(min_user_hist=1, min_item_freq=1),
+    ]
+    
+    config = DatasetConfig(
+        raw_path='./datasets/MINDsmall_train',
+        dataset_name='mind_small_minor_preprocessing',
+        version='small',
+        converter_class=MINDAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None
+    )
+    
+    return config, MINDDataLoader
+
 DATASET_REGISTRY = {
     "mind_small_baseline": get_mind_small_baseline,
     "mind_small_no_preprocessing": get_mind_no_preprocessing,
+    "mind_small_minor_preprocessing": get_mind_small_minor_preprocessing,
     "mind_large_no_preprocessing": get_mind_large_no_preprocessing,
 }
 

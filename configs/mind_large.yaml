@@ -15,9 +15,10 @@ load_col:
 # They define the splits used for respectively train, validation and test.
 benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']
 
-# Filtering (We don't want any preprocessing within windows)
-# user_inter_num_interval: "[5,inf)"
-# item_inter_num_interval: "[10,inf)"
+# Filtering (Within each window, we only retain users and items with interactions)
+user_inter_num_interval: "[1,inf)"
+item_inter_num_interval: "[1,inf)"
+filter_inter_by_user_or_item: true
 
 # pre-generated splits from ETL (RECOMMENDED)
 eval_args:

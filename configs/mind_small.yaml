@@ -14,9 +14,10 @@ load_col:
 # use pre-generated splits from ETL
 benchmark_filename: ['train', 'valid', 'test']
 
-# Filtering (applied during ETL)
-# user_inter_num_interval: "[5,inf)"
-# item_inter_num_interval: "[5,inf)"
+# Filtering (Within each window, we only retain users and items with interactions)
+user_inter_num_interval: "[1,inf)"
+item_inter_num_interval: "[1,inf)"
+filter_inter_by_user_or_item: true
 
 eval_args:
   split: {'LS': 'valid_and_test'}
