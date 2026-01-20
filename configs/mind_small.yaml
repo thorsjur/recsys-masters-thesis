@@ -16,7 +16,7 @@ benchmark_filename: ['train', 'valid', 'test']
 
 # Filtering (Within each window, we only retain users and items with interactions)
 user_inter_num_interval: "[1,inf)"
-item_inter_num_interval: "[1,inf)"
+item_inter_num_interval: "[0,inf)"
 filter_inter_by_user_or_item: true
 
 eval_args:
@@ -28,5 +28,5 @@ eval_args:
 
 # Metrics
 metrics: ['Recall', 'NDCG', 'Hit', 'Precision', 'MRR', 'GAUC']
-topk: [1, 5, 10, 20]
+topk: [1, 5, 10]
 valid_metric: NDCG@10

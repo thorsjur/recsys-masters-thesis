@@ -15,9 +15,10 @@ load_col:
 # They define the splits used for respectively train, validation and test.
 benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']
 
-# Filtering (Within each window, we only retain users and items with interactions)
+# Filtering (Within each window, we only retain users with interactions)
+# The min items are set to 0 such that we can pre-build caches for all items across windows.
 user_inter_num_interval: "[1,inf)"
-item_inter_num_interval: "[1,inf)"
+item_inter_num_interval: "[0,inf)"
 filter_inter_by_user_or_item: true
 
 # pre-generated splits from ETL (RECOMMENDED)
@@ -29,5 +30,5 @@ eval_args:
 
 # Metrics
 metrics: ['Recall', 'NDCG', 'Hit', 'Precision', 'MRR', 'GAUC']
-topk: [1, 5, 10, 20]
+topk: [1, 5, 10]
 valid_metric: NDCG@5
