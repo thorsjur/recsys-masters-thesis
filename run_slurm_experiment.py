@@ -234,7 +234,7 @@ def setup_parser() -> argparse.ArgumentParser:
         "cleanup",
         help="Cleanup temporary split files",
     )
-    cleanup_parser.add_argument("dataset", help="Dataset name", required=True)
+    cleanup_parser.add_argument("dataset", help="Dataset name")
     cleanup_parser.add_argument(
         "--dry-run",
         action="store_true",
