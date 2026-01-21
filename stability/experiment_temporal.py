@@ -278,6 +278,8 @@ def run_window_experiments(
     window_params.append(f"benchmark_filename={splits['benchmark_filename']}")
 
     window_info = build_window_info(w, config, num_windows, window_ratio)
+    window_info["temp_prefix"] = splits["temp_prefix"]
+    window_info["temp_dir"] = str(temp_dir)
 
     if not splits["has_valid"]:
         logger.info("Using dummy validation set for RecBole compatibility")

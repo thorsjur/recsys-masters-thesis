@@ -86,6 +86,10 @@ class TemporalDatasetBuilder:
         if train_range is None or test_range is None:
             raise ValueError(f"train_{self.granularity}s and test_{self.granularity}s are required")
 
+        train_length = train_range[1] - train_range[0] + 1
+        val_length = (valid_range[1] - valid_range[0] + 1) if valid_range else 0
+        test_length = test_range[1] - test_range[0] + 1
+
         self.temp_dir = self.dataset_dir
         logger.info(f"Building temporal splits with prefix '{temp_prefix}'")
 
@@ -94,9 +98,16 @@ class TemporalDatasetBuilder:
             start, end = time_range
             logger.info(f"  {split_name}: {self.granularity}s {start}-{end}")
 
-            df = self.load_time_range(start, end)
-            filename = f"{temp_prefix}_{split_name}"
+            filename = f"{temp_prefix}_{split_name}_{self.granularity}_{train_length}_{val_length}_{test_length}"
             filepath = self.temp_dir / f"{self.dataset_name}.{filename}.inter"
+            if filepath.exists():
+                logger.info(
+                    f"Using existing files for {temp_prefix}_{split_name} {train_length}:{val_length}:{test_length} split"
+                )
+                splits[split_name] = filename
+                continue
+
+            df = self.load_time_range(start, end)
             df.to_csv(filepath, sep="\t", index=False)
             splits[split_name] = filename
             logger.info(f"    Wrote {len(df)} interactions to {filepath.name}")
@@ -112,9 +123,13 @@ class TemporalDatasetBuilder:
 
         filename = f"{temp_prefix}_valid"
         filepath = self.temp_dir / f"{self.dataset_name}.{filename}.inter"
-        df.to_csv(filepath, sep="\t", index=False)
         splits["valid"] = filename
-        logger.info(f"    Wrote {len(df)} interactions to {filepath.name}")
+
+        if not filepath.exists():
+            df.to_csv(filepath, sep="\t", index=False)
+            logger.info(f"    Wrote {len(df)} interactions to {filepath.name}")
+        else:
+            logger.info(f"Using existing file for {temp_prefix}_valid split")
 
         # Copy item file if needed
         item_file = self.dataset_dir / f"{self.dataset_name}.item"

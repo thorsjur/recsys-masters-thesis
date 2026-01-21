@@ -325,6 +325,7 @@ class ExperimentOrchestrator:
                     "has_validation": window.has_valid,
                     "benchmark_filename": splits["benchmark_filename"],
                     "temp_prefix": splits["temp_prefix"],
+                    "temp_dir": str(temp_dir),
                 }
 
                 if window.has_valid:

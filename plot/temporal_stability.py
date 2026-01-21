@@ -36,8 +36,9 @@ def plot_temporal_stability(
     experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
     all_data = [extract_temporal_metrics(load_experiment_results(jsonl_path, eid), metrics) for eid in experiment_ids]
 
-    if len(all_data) > 1:
-        _validate_compatible_configs(all_data, experiment_ids)
+    # Commented out to allow comparison of different window configs
+    # if len(all_data) > 1:
+    #     _validate_compatible_configs(all_data, experiment_ids)
 
     metadata = all_data[0]["metadata"]
     plot_metrics = all_data[0]["metrics"]

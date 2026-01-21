@@ -228,7 +228,33 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Delete without confirmation",
     )
-
+    
+    # === CLEANUP command ===
+    cleanup_parser = subparsers.add_parser(
+        "cleanup",
+        help="Cleanup temporary split files",
+    )
+    cleanup_parser.add_argument("dataset", help="Dataset name", required=True)
+    cleanup_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List files to be deleted without deleting them",
+    )
+    
+    cleanup_parser.add_argument(
+        "--data-path",
+        type=str,
+        default="datasets/atomic_files",
+        help="Path to dataset directory (default: 'datasets/atomic_files')",
+    )
+    
+    cleanup_parser.add_argument(
+        "--tmp-prefix",
+        type=str,
+        default="window",
+        help="Prefix of temporary files to delete (default: 'window')",
+    )
+    
     # === OUTPUT command ===
     output_parser = subparsers.add_parser(
         "output",
@@ -623,6 +649,38 @@ def cmd_delete(args, orchestrator: ExperimentOrchestrator):
     orchestrator.state_manager.delete_experiment(args.experiment_id)
     print(f"Deleted experiment '{args.experiment_id}'")
 
+def cmd_cleanup(args, orchestrator: ExperimentOrchestrator):
+    """Handle cleanup command."""
+    file_prefix = args.tmp_prefix
+    dataset = args.dataset
+    data_path = Path(args.data_path) / dataset
+    temp_files = []
+    
+    # Find all files in data_path that start with file_prefix
+    for f in data_path.iterdir():
+        if f.is_file() and f.name.startswith(file_prefix):
+            temp_files.append(str(f))
+
+    if not temp_files:
+        print(f"No temporary files found for experiment '{args.experiment_id}'")
+        return
+
+    print(f"Found {len(temp_files)} temporary files to delete:")
+    for f in temp_files:
+        print(f"  {f}")
+
+    if args.dry_run:
+        print("Dry run enabled, no files deleted")
+        return
+
+    for f in temp_files:
+        try:
+            Path(f).unlink()
+            print(f"Deleted: {f}")
+        except Exception as e:
+            print(f"Failed to delete {f}: {e}")
+
+    print(f"Cleanup completed for experiment '{args.experiment_id}'")
 
 def cmd_output(args, orchestrator: ExperimentOrchestrator):
     """Handle output command."""
@@ -688,6 +746,7 @@ def main():
         "cancel": cmd_cancel,
         "list": cmd_list,
         "delete": cmd_delete,
+        "cleanup": cmd_cleanup,
         "output": cmd_output,
     }
 
