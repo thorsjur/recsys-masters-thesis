@@ -24,7 +24,7 @@ filter_inter_by_user_or_item: true
 # pre-generated splits from ETL (RECOMMENDED)
 eval_args:
   split: {'LS': 'valid_and_test'}
-  group_by: user
+  group_by: none
   order: TO
   mode: {'valid': 'uni4', 'test': 'uni4'}
 
