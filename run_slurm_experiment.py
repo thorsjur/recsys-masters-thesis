@@ -652,17 +652,20 @@ def cmd_delete(args, orchestrator: ExperimentOrchestrator):
 def cmd_cleanup(args, orchestrator: ExperimentOrchestrator):
     """Handle cleanup command."""
     file_prefix = args.tmp_prefix
+    assert file_prefix, "Temporary file prefix must be specified"
+    
+    file_name_prefix = args.dataset + "." + file_prefix
     dataset = args.dataset
     data_path = Path(args.data_path) / dataset
     temp_files = []
     
-    # Find all files in data_path that start with file_prefix
+    # Find all files in data_path that start with file_name_prefix
     for f in data_path.iterdir():
-        if f.is_file() and f.name.startswith(file_prefix):
+        if f.is_file() and f.name.startswith(file_name_prefix):
             temp_files.append(str(f))
 
     if not temp_files:
-        print(f"No temporary files found for experiment '{args.experiment_id}'")
+        print(f"No temporary files found for dataset '{dataset}'")
         return
 
     print(f"Found {len(temp_files)} temporary files to delete:")
@@ -680,7 +683,7 @@ def cmd_cleanup(args, orchestrator: ExperimentOrchestrator):
         except Exception as e:
             print(f"Failed to delete {f}: {e}")
 
-    print(f"Cleanup completed for experiment '{args.experiment_id}'")
+    print(f"Cleanup completed for dataset '{dataset}'")
 
 def cmd_output(args, orchestrator: ExperimentOrchestrator):
     """Handle output command."""
