@@ -1,5 +1,5 @@
 from typing import Dict
-from loaders.converters.base_converter import BaseAtomicConverter
+from etl.converters.base_converter import BaseAtomicConverter
 
 class MINDAtomicConverter(BaseAtomicConverter):
     

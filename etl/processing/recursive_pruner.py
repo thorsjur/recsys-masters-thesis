@@ -1,4 +1,4 @@
-from loaders.processing.base_preprocessor import BasePreprocessor
+from etl.processing.base_preprocessor import BasePreprocessor
 
 
 class RecursivePruner(BasePreprocessor):

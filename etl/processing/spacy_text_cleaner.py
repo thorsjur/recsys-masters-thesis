@@ -1,7 +1,7 @@
 import spacy
 from tqdm import tqdm
 
-from loaders.processing.base_preprocessor import BasePreprocessor
+from etl.processing.base_preprocessor import BasePreprocessor
 
 class SpacyTextCleaner(BasePreprocessor):
     def __init__(self, target_col: str, output_col: str, model: str = "en_core_web_sm", batch_size: int = 1000):

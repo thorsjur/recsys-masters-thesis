@@ -1,6 +1,6 @@
 from typing import List, Any, Optional, Tuple, TypeAlias, Union
 import pandas as pd
-from loaders.processing.base_preprocessor import BasePreprocessor
+from etl.processing.base_preprocessor import BasePreprocessor
 
 Number: TypeAlias = Union[int, float]
 Range: TypeAlias = Tuple[Number, Number]

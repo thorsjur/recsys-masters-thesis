@@ -1,12 +1,12 @@
-from loaders.base_loader import DatasetConfig
-from loaders.mind_loader import MINDDataLoader
-from loaders.converters.mind_converter import MINDAtomicConverter
+from etl.base_loader import DatasetConfig
+from etl.mind_loader import MINDDataLoader
+from etl.converters.mind_converter import MINDAtomicConverter
 
 def get_mind_small_baseline():
     """MIND Small with standard preprocessing."""
     
-    from loaders.processing.recursive_pruner import RecursivePruner
-    from loaders.processing.spacy_text_cleaner import SpacyTextCleaner
+    from etl.processing.recursive_pruner import RecursivePruner
+    from etl.processing.spacy_text_cleaner import SpacyTextCleaner
     
     pipeline = [
         SpacyTextCleaner(target_col="title", output_col="title", batch_size=2000),
@@ -61,9 +61,9 @@ def get_mind_large_no_preprocessing():
 
 def get_mind_small_minor_preprocessing():
     """MIND Small with minor preprocessing."""
-    from loaders.processing.recursive_pruner import RecursivePruner
-    from loaders.processing.value_filter import ValueFilter
-    from loaders.processing.base_preprocessor import BasePreprocessor
+    from etl.processing.recursive_pruner import RecursivePruner
+    from etl.processing.value_filter import ValueFilter
+    from etl.processing.base_preprocessor import BasePreprocessor
     
     pipeline: list[BasePreprocessor] = [
         # To reduce data set size, we only keep actual interactions and not negatives
@@ -87,9 +87,9 @@ def get_mind_small_minor_preprocessing():
 
 def get_mind_large_minor_preprocessing():
     """MIND Large with minor preprocessing."""
-    from loaders.processing.recursive_pruner import RecursivePruner
-    from loaders.processing.value_filter import ValueFilter
-    from loaders.processing.base_preprocessor import BasePreprocessor
+    from etl.processing.recursive_pruner import RecursivePruner
+    from etl.processing.value_filter import ValueFilter
+    from etl.processing.base_preprocessor import BasePreprocessor
     
     pipeline: list[BasePreprocessor] = [
         # To reduce data set size, we only keep actual interactions and not negatives

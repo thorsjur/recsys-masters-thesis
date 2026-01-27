@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import numpy as np
 from tqdm import tqdm
-from loaders.base_loader import AbstractDataLoader, DatasetConfig
+from etl.base_loader import AbstractDataLoader, DatasetConfig
 
 
 def _count_file_lines(filepath: str) -> int:

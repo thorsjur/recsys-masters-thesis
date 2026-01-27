@@ -3,9 +3,9 @@ from typing import List, Optional, Type, Tuple, Union
 import pandas as pd
 from dataclasses import dataclass, field
 
-from loaders.converters.base_converter import BaseAtomicConverter
-from loaders.processing.base_preprocessor import BasePreprocessor
-from loaders.splitters.base_splitter import BaseSplitter
+from etl.converters.base_converter import BaseAtomicConverter
+from etl.processing.base_preprocessor import BasePreprocessor
+from etl.splitters.base_splitter import BaseSplitter
 
 @dataclass
 class DatasetConfig:
