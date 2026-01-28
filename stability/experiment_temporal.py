@@ -327,7 +327,7 @@ def run_temporal_experiment(
     granularity: str = "day",
     config_files: Optional[List[str]] = None,
     params: Optional[List[str]] = None,
-    data_path: str = "datasets/atomic_files",
+    data_path: str = "data/atomic_files",
     experiment_id: Optional[str] = None,
     description: Optional[str] = None,
 ) -> ExperimentSummary:

@@ -37,7 +37,7 @@ from util.dataset_analysis import (
 def analyze_dataset_from_experiment(
     experiment_id: str,
     jsonl_path: str = "output/results/experiments.jsonl",
-    dataset_path: str = "datasets/atomic_files",
+    dataset_path: str = "data/atomic_files",
     output_dir: Optional[str] = None,
     start_timestamp: Optional[float] = None,
     figsize: tuple = (12, 6),
@@ -170,7 +170,7 @@ def main():
     parser.add_argument(
         "--jsonl-path", default="output/results/experiments.jsonl", help="Path to experiments.jsonl file"
     )
-    parser.add_argument("--dataset-path", default="datasets/atomic_files", help="Path to dataset directory")
+    parser.add_argument("--dataset-path", default="data/atomic_files", help="Path to dataset directory")
     parser.add_argument("--output-dir", "-o", help="Output directory for PDFs")
     parser.add_argument("--start-timestamp", type=float, help="Start timestamp (Unix)")
     parser.add_argument("--figsize", nargs=2, type=float, default=[12, 6], help="Figure size")

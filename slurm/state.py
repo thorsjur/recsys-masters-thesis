@@ -93,7 +93,7 @@ class ExperimentConfig:
     seeds: List[int]
     config_files: List[str] = field(default_factory=list)
     params: List[str] = field(default_factory=list)
-    data_path: str = "datasets/atomic_files"
+    data_path: str = "data/atomic_files"
     description: Optional[str] = None
 
     # IDUN Slurm-specific configuration

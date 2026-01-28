@@ -69,7 +69,7 @@ def run_experiment(
     seed: int,
     config_files: Optional[List[str]] = None,
     params: Optional[List[str]] = None,
-    data_path: str = "datasets/atomic_files",
+    data_path: str = "data/atomic_files",
     experiment_id: Optional[str] = None,
     description: Optional[str] = None,
     window_info: Optional[Dict[str, Any]] = None,

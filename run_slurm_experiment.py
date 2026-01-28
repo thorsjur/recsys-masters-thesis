@@ -244,8 +244,8 @@ def setup_parser() -> argparse.ArgumentParser:
     cleanup_parser.add_argument(
         "--data-path",
         type=str,
-        default="datasets/atomic_files",
-        help="Path to dataset directory (default: 'datasets/atomic_files')",
+        default="data/atomic_files",
+        help="Path to dataset directory (default: 'data/atomic_files')",
     )
     
     cleanup_parser.add_argument(
@@ -352,8 +352,8 @@ def _add_experiment_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--data-path",
         type=str,
-        default="datasets/atomic_files",
-        help="Path to dataset directory (default: 'datasets/atomic_files')",
+        default="data/atomic_files",
+        help="Path to dataset directory (default: 'data/atomic_files')",
     )
     parser.add_argument(
         "--description",

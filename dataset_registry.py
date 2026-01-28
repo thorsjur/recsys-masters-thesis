@@ -15,7 +15,7 @@ def get_mind_small_baseline():
     ]
     
     config = DatasetConfig(
-        raw_path='./datasets/MINDsmall_train',
+        raw_path='./data/MINDsmall_train',
         dataset_name='mind_small',
         version='small',
         converter_class=MINDAtomicConverter,
@@ -30,7 +30,7 @@ def get_mind_no_preprocessing():
     pipeline = []
     
     config = DatasetConfig(
-        raw_path='./datasets/MINDsmall_train',
+        raw_path='./data/MINDsmall_train',
         dataset_name='mind_no_preprocessing',
         version='small',
         converter_class=MINDAtomicConverter,
@@ -45,7 +45,7 @@ def get_mind_large_no_preprocessing():
     pipeline = []
     
     config = DatasetConfig(
-        raw_path='./datasets/MINDlarge',
+        raw_path='./data/MINDlarge',
         dataset_name='mind_large',
         version='large',
         converter_class=MINDAtomicConverter,
@@ -75,7 +75,7 @@ def get_mind_small_minor_preprocessing():
     ]
     
     config = DatasetConfig(
-        raw_path='./datasets/MINDsmall_train',
+        raw_path='./data/MINDsmall_train',
         dataset_name='mind_small_minor_preprocessing',
         version='small',
         converter_class=MINDAtomicConverter,
@@ -100,7 +100,7 @@ def get_mind_small_impressions():
     ]
     
     config = DatasetConfig(
-        raw_path='./datasets/MINDsmall_train',
+        raw_path='./data/MINDsmall_train',
         dataset_name='mind_small_impressions',
         version='small',
         converter_class=MINDImpressionAtomicConverter,
@@ -127,7 +127,7 @@ def get_mind_large_minor_preprocessing():
     ]
     
     config = DatasetConfig(
-        raw_path='./datasets/MINDlarge',
+        raw_path='./data/MINDlarge',
         dataset_name='mind_large_minor_preprocessing',
         version='large',
         converter_class=MINDAtomicConverter,

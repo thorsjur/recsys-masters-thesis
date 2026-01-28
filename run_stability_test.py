@@ -80,8 +80,8 @@ def main():
     parser.add_argument(
         "--data-path",
         type=str,
-        default="datasets/atomic_files",
-        help="Path to dataset directory (default: 'datasets/atomic_files')",
+        default="data/atomic_files",
+        help="Path to dataset directory (default: 'data/atomic_files')",
     )
 
     parser.add_argument(

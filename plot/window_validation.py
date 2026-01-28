@@ -26,7 +26,7 @@ from util.window_plots import plot_window_data_distribution, plot_cold_start_rat
 def validate_sliding_windows(
     experiment_id: str,
     jsonl_path: str = "output/results/experiments.jsonl",
-    dataset_path: str = "datasets/atomic_files",
+    dataset_path: str = "data/atomic_files",
     output_dir: Optional[str] = None,
     generate_plots: bool = True,
     export_tables: bool = True,
@@ -168,7 +168,7 @@ def main():
     parser = argparse.ArgumentParser(description="Validate sliding window methodology and generate statistics")
     parser.add_argument("--experiment-id", required=True, help="Experiment ID to validate")
     parser.add_argument("--jsonl-path", default="output/results/experiments.jsonl")
-    parser.add_argument("--dataset-path", default="datasets/atomic_files")
+    parser.add_argument("--dataset-path", default="data/atomic_files")
     parser.add_argument("--output-dir", "-o", help="Output directory")
     parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
     parser.add_argument("--no-tables", action="store_true", help="Skip table export")
