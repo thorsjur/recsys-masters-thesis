@@ -19,6 +19,7 @@ dependencies:
   - gensim=4.4.0
   - spacy=3.8.11
   - transformers=4.57.3
+  - nltk=3.9.2
   
   # Deep Learning
   - pytorch=2.5.1

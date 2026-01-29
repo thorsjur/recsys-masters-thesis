@@ -1,4 +1,4 @@
-datasets/**
+data/**
 output/logs/
 output/slurm_*/
 output/checkpoints/

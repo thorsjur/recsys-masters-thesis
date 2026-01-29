@@ -10,6 +10,53 @@ from typing import Optional
 _original_stdout = sys.stdout
 _original_stderr = sys.stderr
 
+import builtins
+
+def install_print_hook(logger: logging.Logger, level: int = logging.INFO):
+    original_print = builtins.print
+
+    def hooked_print(*args, **kwargs):
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\n")
+        file = kwargs.get("file", None)
+
+        # Only intercept default prints (or prints explicitly going to stdout)
+        if file is None or file is sys.stdout:
+            msg = sep.join(str(a) for a in args)
+
+            # If caller uses custom end (rare), include it in the message except final newline
+            if end and end != "\n":
+                msg += end
+
+            logger.log(level, msg)
+            return
+
+        # Anything printed to a different file behaves normally
+        original_print(*args, **kwargs)
+
+    builtins.print = hooked_print
+    return original_print
+
+
+def install_excepthook(logger: logging.Logger) -> None:
+    def _hook(exc_type, exc, tb):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc, tb)
+            return
+
+        logger.critical("Uncaught exception", exc_info=(exc_type, exc, tb))
+
+        # Force flush to file/console before exit
+        for h in logging.getLogger().handlers:
+            try:
+                h.flush()
+            except Exception:
+                pass
+        logging.shutdown()
+
+    sys.excepthook = _hook
+
+
 
 class PrintCaptureStream:
     """Stream wrapper that redirects writes to a logger."""
@@ -21,28 +68,34 @@ class PrintCaptureStream:
         self.buffer = ""
 
     def write(self, message: str):
-        if message and "\r" in message:
+        if not message:
+            return
+
+        # Pass through carriage returns (e.g., tqdm)
+        if "\r" in message:
             if self.original_stream:
                 self.original_stream.write(message)
                 self.original_stream.flush()
             return
-        
-        # Buffer the message until we get a newline
+
         self.buffer += message
-        
-        # Process complete lines
-        while "\n" in self.buffer:
+
+        if "\n" in self.buffer:
             line, self.buffer = self.buffer.split("\n", 1)
-            if line.strip():
-                self.logger.log(self.level, line.rstrip())
+            line = line.rstrip()
+            if line:
+                self.logger.log(self.level, line)
 
     def flush(self):
-        # Log any remaining buffered content
-        if self.buffer.strip():
-            self.logger.log(self.level, self.buffer.rstrip())
+        if self.buffer:
+            line = self.buffer.rstrip()
+            if line:
+                self.logger.log(self.level, line)
             self.buffer = ""
+
         if self.original_stream:
             self.original_stream.flush()
+
 
 
 def setup_logging(
@@ -85,6 +138,9 @@ def setup_logging(
     # Capture print statements
     if capture_print:
         sys.stdout = PrintCaptureStream(logger, logging.INFO, _original_stdout)
-        sys.stderr = PrintCaptureStream(logger, logging.ERROR, _original_stderr)
+        # sys.stderr = PrintCaptureStream(logger, logging.ERROR, _original_stderr)
 
+    install_excepthook(logger)
+    install_print_hook(logger, logging.INFO)
+    
     return logger
