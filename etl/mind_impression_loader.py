@@ -9,7 +9,7 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
     """
     Keeps one row per positive click within an impression.
 
-    Output columns: user_id, item_id, timestamp, impression_id, negatives
+    Output columns: user_id, item_id, timestamp, impression_id, neg_item_id_list
     """
 
     @staticmethod
@@ -40,7 +40,7 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
         out_pos_item: List[str] = []
         out_ts: List[int] = []
         out_imp: List[int] = []
-        out_negs: List[List[str]] = []
+        out_negs: List[str] = []
 
         for i, tokens in enumerate(impressions_split.tolist()):
             imp_id = int(impression_ids[i])
@@ -71,7 +71,7 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
                 out_pos_item.append(pos_item)
                 out_ts.append(ts)
                 out_imp.append(imp_id)
-                out_negs.append(negatives)
+                out_negs.append(" ".join(negatives))
 
         out = pd.DataFrame(
             {
@@ -79,11 +79,11 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
                 "item_id": np.asarray(out_pos_item, dtype=object),
                 "timestamp": np.asarray(out_ts, dtype=np.int64),
                 "impression_id": np.asarray(out_imp, dtype=np.int64),
-                "negatives": out_negs,
+                "neg_item_id_list": out_negs,
             }
         )
 
-        return out[["user_id", "item_id", "timestamp", "impression_id", "negatives"]]
-
+        return out[["user_id", "item_id", "timestamp", "impression_id", "neg_item_id_list"]]
+    
     def _finalize_interactions_df(self, df: pd.DataFrame) -> pd.DataFrame:
         return super()._finalize_interactions_df(df)

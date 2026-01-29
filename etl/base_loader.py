@@ -13,7 +13,7 @@ class DatasetConfig:
     dataset_name: str
     version: str
     converter_class: Type[BaseAtomicConverter]
-    output_dir: str = './datasets/atomic_files'
+    output_dir: str = './data/atomic_files'
     preprocessors: List[BasePreprocessor] = field(default_factory=list)
     splitter: Optional[BaseSplitter] = None
     spacy_model: str = "en_core_web_sm"

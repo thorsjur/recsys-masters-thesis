@@ -3,7 +3,7 @@ from etl.converters.mind_converter import MINDAtomicConverter
 
 class MINDImpressionAtomicConverter(MINDAtomicConverter):
     """
-    Only difference from MINDAtomicConverter is the addition of 'negatives' field and removal of 'label' field.
+    Only difference from MINDAtomicConverter is the addition of 'neg_item_id_list' field and removal of 'label' field.
     """
     
     def __init__(self, config, df_inter_loaded=None, df_item_loaded=None):
@@ -16,5 +16,5 @@ class MINDImpressionAtomicConverter(MINDAtomicConverter):
             'item_id': 'item_id:token',
             'timestamp': 'timestamp:float',
             'impression_id': 'impression_id:token',
-            'negatives': 'negatives:token_seq'
+            'neg_item_id_list': 'neg_item_id_list:token_seq'
         }
