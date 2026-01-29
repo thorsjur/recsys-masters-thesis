@@ -3,17 +3,14 @@ import os
 import time
 from logging import getLogger
 from importlib import import_module
-import importlib.util
-import sys
-from pathlib import Path
 import uuid
 
-from recbole.config import Config
-from recbole.data import create_dataset, data_preparation
 from recbole.trainer import Trainer
 from recbole.utils import init_seed, init_logger
 from recbole.data.dataloader.knowledge_dataloader import KnowledgeBasedDataLoader
 
+from util.recbole.data_preparation import data_preparation, create_dataset
+from util.recbole.config import CConfig
 from util.logging_config import setup_logging
 from util.results_logger import ResultsLogger
 from util.dataset_analysis import collect_recbole_dataset_stats, format_dataset_stats_summary
@@ -21,9 +18,9 @@ from util.dataset_analysis import collect_recbole_dataset_stats, format_dataset_
 
 def get_model_class(model_name):
     """Dynamically import model class."""
-    
+
     model_lower = model_name.lower()
-    
+
     try:
         module = import_module(f"models.{model_lower}")
         return getattr(module, model_name)
@@ -58,7 +55,7 @@ def main():
 
     parser.add_argument("--config", type=str, nargs="+", default=None, help="Additional config files")
 
-    parser.add_argument("--data_path", type=str, default="datasets/atomic_files", help="Path to dataset directory")
+    parser.add_argument("--data_path", type=str, default="data/atomic_files", help="Path to dataset directory")
 
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
@@ -111,7 +108,7 @@ def main():
         # To prevent clashes when running in parallel, we use unique checkpoint dirs
         "checkpoint_dir": f"output/checkpoints/{args.experiment_id}/{uuid.uuid4().hex[:8]}",
     }
-    
+
     if args.params:
         for param in args.params:
             key, value = param.split("=")
@@ -122,7 +119,7 @@ def main():
 
     model_class = get_model_class(args.model)
 
-    config = Config(
+    config = CConfig(
         model=model_class, dataset=args.dataset, config_file_list=config_file_list, config_dict=config_dict
     )
 
@@ -183,7 +180,7 @@ def main():
             best_valid_score = 0.0
 
         logger.info("Evaluating on test set")
-        test_result = trainer.evaluate(test_data, load_best_model=False, show_progress=True)
+        test_result = trainer.evaluate(test_data, load_best_model=True, show_progress=True)
 
     logger.info(f"Best valid result: {best_valid_result}")
     logger.info(f"Test result: {test_result}")
