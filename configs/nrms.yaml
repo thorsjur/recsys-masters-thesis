@@ -1,0 +1,59 @@
+title_field: title
+title_len: 30
+
+seq_len:
+  title: 30
+
+vocab_size: 50000
+padding_idx: 0
+
+
+# hyper params (from paper)
+word_embedding_dim: 300
+num_heads: 16
+head_dim: 16 # output per head
+att_dim: 200 # additive attention hidden/query dim
+emb_dropout: 0.2
+neg_sample_num: 4
+
+
+freeze_embeddings: true
+embedding_source: "glove"
+embedding_path: "data/glove.6B.300d.txt"
+freeze_embeddings: true
+
+
+# Training (from paper)
+optimizer: Adam
+learning_rate: 0.001   # paper says Adam; LR tuned on validation; start here
+train_batch_size: 64
+
+# Custom eval args (needed for custom data loader)
+eval_neg_sample_num: 4
+eval_shuffle_within_impression: false # We want deterministic evaluation, and no need to shuffle
+eval_batch_size: 256
+
+
+
+# Needed for sequential models
+ITEM_LIST_LENGTH_FIELD: item_length
+LIST_SUFFIX: _list
+MAX_ITEM_LIST_LENGTH: 50
+POSITION_FIELD: null
+
+# Uses custom negative sampling from within each impression
+# train_neg_sample_args:
+#   distribution: uniform
+#   sample_num: 4
+
+# Custom dataloader for training and evaluation.
+custom_dataloader: impression_loader
+
+# Note that this must match the field naming from the .inter file
+impr_neg_field: neg_item_id_list
+
+cand_field: cand_item_id
+pos_index_field: pos_index
+shuffle_within_impression: true
+
+
