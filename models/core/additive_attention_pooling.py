@@ -29,7 +29,7 @@ class AdditiveAttentionPooling(nn.Module):
         scores = self.fc(h).squeeze(-1)  # (B, L)
 
         if mask is not None:
-            scores = scores.masked_fill(~mask, -1e9)
+            scores = scores.masked_fill(~mask, -1e9 if scores.dtype == torch.float32 else -1e4)
 
         alpha = F.softmax(scores, dim=-1)  # (B, L)
         rep = torch.einsum("bl,bld->bd", alpha, E)

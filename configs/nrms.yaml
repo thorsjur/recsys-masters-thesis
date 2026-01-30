@@ -3,6 +3,7 @@ title_len: 30
 
 seq_len:
   title: 30
+  history_item_id_list: 50
 
 vocab_size: 50000
 padding_idx: 0
@@ -49,12 +50,10 @@ POSITION_FIELD: null
 # Custom dataloader for training and evaluation.
 custom_dataloader: impression_loader
 
-# Note that this must match the field naming from the .inter file
-impr_neg_field: neg_item_id_list
-impr_hist_field: history_item_id_list
-
 cand_field: cand_item_id
 pos_index_field: pos_index
 shuffle_within_impression: true
 
+enable_amp: true
+enable_scaler: true
 

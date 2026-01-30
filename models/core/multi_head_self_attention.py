@@ -54,7 +54,7 @@ class MultiHeadSelfAttention(nn.Module):
         # Mask keys
         if mask is not None:
             key_mask = mask[:, None, None, :].expand_as(scores)  # (B, H, L, L)
-            scores = _masked_fill(scores, key_mask, -1e9)
+            scores = _masked_fill(scores, key_mask, -1e9 if scores.dtype == torch.float32 else -1e4)
             
         # Softmax to get attention weights alpha
         alpha = F.softmax(scores, dim=-1)  # (B, H, L, L)
