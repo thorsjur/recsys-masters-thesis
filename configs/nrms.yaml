@@ -51,6 +51,7 @@ custom_dataloader: impression_loader
 
 # Note that this must match the field naming from the .inter file
 impr_neg_field: neg_item_id_list
+impr_hist_field: history_item_id_list
 
 cand_field: cand_item_id
 pos_index_field: pos_index

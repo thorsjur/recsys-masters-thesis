@@ -10,7 +10,7 @@ from models.encoders import NRMSTitleEncoder, NRMSUserEncoder, BaseTextEncoder, 
 
 class NRMS(SequentialRecommender):
 
-    input_type = InputType.POINTWISE
+    input_type = InputType.LISTWISE
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)

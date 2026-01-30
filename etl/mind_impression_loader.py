@@ -34,6 +34,7 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
 
         user_ids = chunk["user_id"].to_numpy()
         impression_ids = chunk["impression_id"].to_numpy()
+        hists = chunk["history"].to_numpy()
         ts_vals = timestamps.to_numpy()
 
         out_user: List[str] = []
@@ -41,11 +42,13 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
         out_ts: List[int] = []
         out_imp: List[int] = []
         out_negs: List[str] = []
+        out_hist: List[str] = []
 
         for i, tokens in enumerate(impressions_split.tolist()):
             imp_id = int(impression_ids[i])
             u = user_ids[i]
             ts = int(ts_vals[i])
+            h = hists[i]
 
             tokens = [t for t in tokens if t]
             if not tokens:
@@ -72,6 +75,7 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
                 out_ts.append(ts)
                 out_imp.append(imp_id)
                 out_negs.append(" ".join(negatives))
+                out_hist.append(h)
 
         out = pd.DataFrame(
             {
@@ -80,10 +84,11 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
                 "timestamp": np.asarray(out_ts, dtype=np.int64),
                 "impression_id": np.asarray(out_imp, dtype=np.int64),
                 "neg_item_id_list": out_negs,
+                "history_item_id_list": out_hist,
             }
         )
 
-        return out[["user_id", "item_id", "timestamp", "impression_id", "neg_item_id_list"]]
+        return out[["user_id", "item_id", "timestamp", "impression_id", "neg_item_id_list", "history_item_id_list"]]
     
     def _finalize_interactions_df(self, df: pd.DataFrame) -> pd.DataFrame:
         return super()._finalize_interactions_df(df)
