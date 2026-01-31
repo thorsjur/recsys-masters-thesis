@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 import torch
 import pandas as pd
@@ -74,26 +75,25 @@ class OptimizedSequentialDataset(Dataset):
 
         return df
 
-    def _right_align_token_seq(self, field: str, padding_value: int = 0):
+    def _right_align_token_seq(self, field: str, padding_value: int = 0, len_field: Optional[str] = None):
         """
-        Right-align the item_seq field
+        Right-align a TOKEN_SEQ field and (optionally) store per-row lengths in len_field.
         """
-        hist = self.inter_feat[field]  # (N, L)
+        hist = self.inter_feat[field]
         if not isinstance(hist, torch.Tensor):
             raise TypeError(f"Expected torch.Tensor for field '{field}', got {type(hist)}")
-        
+
         device = hist.device
         N, L = hist.shape
-        
 
-        # Lengths per row (assumes padding_value is pad)
+        # Lengths per row
         if padding_value == 0:
             lens = torch.count_nonzero(hist, dim=1)
         else:
             lens = (hist != padding_value).sum(dim=1)
         lens = lens.to(torch.long) # type: ignore
 
-        # Build gather indices
+        # Build gather indices for right-alignment
         ar = torch.arange(L, device=device).unsqueeze(0)   # (1, L)
         pos = lens.unsqueeze(1) - L + ar                   # (N, L)
         mask = pos >= 0
@@ -104,12 +104,17 @@ class OptimizedSequentialDataset(Dataset):
 
         self.inter_feat[field] = out
 
+        if len_field is not None:
+            self.inter_feat[len_field] = lens.clamp_max(self.max_item_list_len)
+
+
     def _change_feat_format(self):
         super()._change_feat_format()
         # Register minimal sequential fields (properties only)
         self._sequential_presets_minimal()
         
-        self._right_align_token_seq(self.impr_hist_field)
+        self.impr_hist_len_field = f"{self.impr_hist_field}_len"
+        self._right_align_token_seq(self.impr_hist_field, padding_value=0, len_field=self.impr_hist_len_field)
 
     def _sequential_presets_minimal(self):
         self._check_field("uid_field", "iid_field", "time_field")
@@ -133,51 +138,40 @@ class OptimizedSequentialDataset(Dataset):
 
     @torch.no_grad()
     def get_history(self, inter_index) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        inter_index: (B,) indices into self.inter_feat
-        returns:
-            item_id_list: (B, L) right-aligned padded with 0
-            item_length:  (B,)
-        """
-        assert self.inter_feat is not None, "Interaction features must be loaded"
-        assert self.impr_hist_field in self.inter_feat, (
-            f"'{self.impr_hist_field}' not found in inter_feat. "
-        )
-        
-        # Ensure LongTensor index on same device as inter_feat storage
-        if not torch.is_tensor(inter_index):
-            inter_index = torch.as_tensor(inter_index, dtype=torch.long)
-        else:
-            inter_index = inter_index.to(dtype=torch.long)
+        assert self.inter_feat is not None
+        assert self.impr_hist_field in self.inter_feat and self.impr_hist_len_field in self.inter_feat, \
+            f"Impression history fields '{self.impr_hist_field}' and '{self.impr_hist_len_field}' must be present in inter_feat."
 
         hist_all: torch.Tensor = self.inter_feat[self.impr_hist_field]
+        len_all: torch.Tensor = self.inter_feat[self.impr_hist_len_field] # type: ignore
         device = hist_all.device
-        inter_index = inter_index.to(device=device)
 
-        # Fetch histories in one shot
-        hist = torch.index_select(hist_all, dim=0, index=inter_index)  # (B, M)
+        if not torch.is_tensor(inter_index):
+            inter_index = torch.as_tensor(inter_index, dtype=torch.long, device=device)
+        else:
+            inter_index = inter_index.to(device=device, dtype=torch.long, non_blocking=True)
 
+        hist = hist_all.index_select(0, inter_index)       # (B, M)
+        item_len = len_all.index_select(0, inter_index)    # (B,)
+
+        B, M = hist.shape
         L = self.max_item_list_len
-        M = hist.size(1)
 
-        item_len = torch.count_nonzero(hist, dim=1).to(torch.long)
-
-        # Take at most L (should be aligned with the already set seq_len)
-        take = torch.minimum(item_len, torch.tensor(L, device=device, dtype=torch.long))
-
-        # Assumes right-aligned sequences
         if M == L:
             out = hist
         elif M > L:
             out = hist[:, -L:]
+            item_len = item_len.clamp_max(L)
         else:
-            # M < L: left-pad with zeros to make (B, L)
-            out = hist.new_zeros((hist.size(0), L))
+            out = hist.new_zeros((B, L))
             out[:, -M:] = hist
 
-        # If M > L, lengths need clamping to L
-        item_len = take
-        return out.to(torch.long), item_len
+        if out.dtype != torch.long:
+            out = out.long()
+
+        return out, item_len
+
+
 
 
     def build(self):
