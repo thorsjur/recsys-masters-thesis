@@ -57,3 +57,5 @@ shuffle_within_impression: true
 enable_amp: true
 enable_scaler: true
 
+stopping_step: 5
+
