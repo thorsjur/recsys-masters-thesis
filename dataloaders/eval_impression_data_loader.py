@@ -15,9 +15,19 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
             raise ValueError("EvalImpressionDataLoader should not shuffle evaluation data.")
 
         self.neg_k = int(config.get("eval_neg_sample_num", 4))
+
         self.shuffle_within_impression = bool(config.get("eval_shuffle_within_impression", False))
 
         super().__init__(config, dataset, sampler, shuffle=shuffle)
+        
+        max_neg_k = config["eval_max_neg_sample_num"]
+        if max_neg_k is None:
+            max_len_negs = dataset.inter_feat[config["impr_neg_field"]].shape[-1] - 1
+            self.max_neg_k = max_len_negs
+            self.logger.info(f"eval_max_neg_sample_num not set, using max available negatives: {self.max_neg_k}")
+        else:
+            self.max_neg_k = int(max_neg_k)
+            self.logger.info(f"Using eval_max_neg_sample_num: {self.max_neg_k}")
 
     def _init_batch_size_and_step(self):
         batch_size = int(self.config.get("eval_batch_size", self.config.get("test_batch_size", 256)))
@@ -30,36 +40,47 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
         data = self._dataset[index]
         transformed: Interaction = self.transform(self._dataset, data)
 
-        assert isinstance(self._dataset, OptimizedSequentialDataset), \
-            "This eval loader expects OptimizedSequentialDataset"
+        assert isinstance(
+            self._dataset, OptimizedSequentialDataset
+        ), "This eval loader expects OptimizedSequentialDataset"
 
         item_seq, item_len = self._dataset.get_history(torch.tensor(index, dtype=torch.long))
 
-        valid = (item_len > 0)
+        valid = item_len > 0
         if valid.any() and (not valid.all()):
             item_seq = item_seq[valid]
             item_len = item_len[valid]
             transformed = transformed[valid]
 
-        transformed.update(Interaction({
-            self._dataset.item_id_list_field: item_seq,
-            self._dataset.item_list_length_field: item_len,
-        }))
+        transformed.update(
+            Interaction(
+                {
+                    self._dataset.item_id_list_field: item_seq,
+                    self._dataset.item_list_length_field: item_len,
+                }
+            )
+        )
 
         cand = transformed[self.impr_neg_field]
-        assert isinstance(cand, torch.Tensor) and cand.dim() == 2, \
-            "Impression negative field must be a (B, M) torch.Tensor"
+        assert (
+            isinstance(cand, torch.Tensor) and cand.dim() == 2
+        ), "Impression negative field must be a (B, M) torch.Tensor"
 
-        neg_items = self._sample_k(cand, self.neg_k)              # (B, K)
-        pos = transformed[self.iid_field].view(-1, 1)             # (B, 1)
-        cand_items = torch.cat([pos, neg_items], dim=1)           # (B, L) where L=1+K
+        num_negs = self.neg_k
+
+        if num_negs > self.max_neg_k or num_negs <= 0:
+            num_negs = self.max_neg_k
+
+        neg_items = self._sample_k(cand, num_negs)  # (B, K)
+        pos = transformed[self.iid_field].view(-1, 1)  # (B, 1)
+        cand_items = torch.cat([pos, neg_items], dim=1)  # (B, L) where L=1+K
 
         B, L = cand_items.shape
         device = cand_items.device
 
         row_idx = torch.arange(B, device=device).repeat_interleave(L)  # (B*L,)
 
-        positive_u = torch.arange(B, device=device, dtype=torch.long)                 # (B,)
+        positive_u = torch.arange(B, device=device, dtype=torch.long)  # (B,)
         positive_i = transformed[self.iid_field].to(device=device).long()  # (B,)
 
         flat_item = cand_items.reshape(-1)  # (B*L,)
@@ -76,5 +97,3 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
 
         interaction_flat = Interaction(flat_data)
         return interaction_flat, row_idx, positive_u, positive_i
-
-
