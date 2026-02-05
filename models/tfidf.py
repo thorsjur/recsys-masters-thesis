@@ -28,7 +28,7 @@ class TFIDF(NewsEmbeddingRecommender):
         
         assert isinstance(tfidf, sp.csr_matrix), "TFIDF output is not a sparse matrix"
 
-        self.item_embeddings = torch.from_numpy(tfidf.toarray()).to(self.device)
+        self.item_embeddings = torch.from_numpy(tfidf.toarray()).to(self.device) # (n_items, tfidf_dim)
 
         self.logger.info(
             f"TFIDF built item embeddings: shape={tuple(self.item_embeddings.shape)}, "

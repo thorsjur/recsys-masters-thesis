@@ -13,10 +13,6 @@ load_col:
 # Ensure item ids and negatives are mapped to the same ID space
 alias_of_item_id: [neg_item_id_list, history_item_id_list]
 
-# Note that this must match the field naming from the .inter file
-impr_neg_field: neg_item_id_list
-impr_hist_field: history_item_id_list
-
 # These are temporary values, and will be overwritten programmatically.
 # They define the splits used for respectively train, validation and test.
 # benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']
@@ -29,6 +25,9 @@ filter_inter_by_user_or_item: true
 # Custom dataset to prevent OOM errors on creation, as
 # RecBole uses more memory than is necessary (for our use case).
 custom_dataset: opt_sequential
+
+# Custom dataloader for training and evaluation.
+custom_dataloader: impression_loader
 
 # pre-generated splits from ETL
 eval_args:

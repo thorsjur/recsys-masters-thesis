@@ -86,22 +86,27 @@ def main():
         debug_mode=args.debug, log_dir="output/logs/recbole", log_prefix=f"{args.model.lower()}_{args.dataset}"
     )
 
-    # Auto-include dataset and model configs if not already specified
     config_file_list = []
-    if args.config:
-        config_file_list.extend(args.config)
 
-    dataset_config = f"configs/{args.dataset}.yaml"
-    model_config = f"configs/{args.model.lower()}.yaml"
+    
+    # Add env config if exists and not already in list
+    env_config = f"configs/env.yaml"
+    if os.path.exists(env_config) and env_config not in config_file_list:
+        config_file_list.append(env_config)
 
     # Add dataset config if exists and not already in list
+    dataset_config = f"configs/{args.dataset}.yaml"
     if os.path.exists(dataset_config) and dataset_config not in config_file_list:
-        config_file_list.insert(0, dataset_config)
+        config_file_list.append(dataset_config)
 
     # Add model config if exists and not already in list
+    model_config = f"configs/{args.model.lower()}.yaml"
     if os.path.exists(model_config) and model_config not in config_file_list:
         config_file_list.append(model_config)
 
+    if args.config:
+        config_file_list.extend(args.config)
+        
     config_dict = {
         "data_path": args.data_path,
         
@@ -164,7 +169,8 @@ def main():
     if config["epochs"] > 0:  # type: ignore
         best_valid_score, best_valid_result = trainer.fit(train_data, valid_data, show_progress=True)
         training_time = time.time() - start_time
-        test_result = trainer.evaluate(test_data, show_progress=True)
+        logger.info("Evaluating on test set")
+        test_result = trainer.evaluate(test_data, load_best_model=True, show_progress=True)
     else:
         logger.info("Skipping training (epochs=0, non-trainable model)")
         training_time = time.time() - start_time
@@ -180,7 +186,7 @@ def main():
             best_valid_score = 0.0
 
         logger.info("Evaluating on test set")
-        test_result = trainer.evaluate(test_data, load_best_model=True, show_progress=True)
+        test_result = trainer.evaluate(test_data, load_best_model=False, show_progress=True)
 
     logger.info(f"Best valid result: {best_valid_result}")
     logger.info(f"Test result: {test_result}")

@@ -27,6 +27,10 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         self.title_field = config["title_field"] if "title_field" in config else "title"
         self.abstract_field = config["abstract_field"] if "abstract_field" in config else "abstract"
         self.use_abstract = config["use_abstract"] if "use_abstract" in config else True
+        
+        self.hist_field = config["hist_field"]
+        self.use_hist = config.get("use_hist", False)
+        self.has_hist_field = self.hist_field is not None and self.hist_field in dataset.inter_feat and self.use_hist
 
         self.aggregation = config["aggregation"] if "aggregation" in config else "mean"
         self.similarity = config["similarity"] if "similarity" in config else "cosine"
@@ -34,8 +38,8 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         # Dummy param so RecBole is happy
         self.dummy_param = nn.Parameter(torch.zeros(1))
 
-        self._build_item_embeddings(dataset)
-        self._build_user_embeddings(dataset)
+        self._build_item_embeddings(dataset) # (n_items, dim)
+        self._build_user_embeddings(dataset) # (n_users, dim)
 
         assert hasattr(self, "item_embeddings"), "_build_item_embeddings() must set self.item_embeddings"
         assert hasattr(self, "user_embeddings"), "_build_user_embeddings() must set self.user_embeddings"
@@ -76,14 +80,20 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         # Attention-based aggregation is handled separately during prediction,
         # and thus the user-embeddings are not really used in that case.
         # For simplicity, we just use mean aggregation here.
+        
+        # Determine aggregation dimension based on tensor shape
+        # (n_items, dim) -> aggregate along dim=0
+        # (n_users, n_items, dim) -> aggregate along dim=1 (items dimension)
+        agg_dim = -2 if hist_emb.dim() == 3 else 0
+        
         if self.aggregation == "mean" or self.aggregation == "attention":
-            return hist_emb.mean(dim=0)
+            return hist_emb.mean(dim=agg_dim)
         if self.aggregation == "sum":
-            return hist_emb.sum(dim=0)
+            return hist_emb.sum(dim=agg_dim)
         if self.aggregation == "max":
-            return hist_emb.max(dim=0)[0]
+            return hist_emb.max(dim=agg_dim)[0]
         raise ValueError(f"Unknown aggregation method: {self.aggregation}")
-
+    
     def forward(self, interaction):
         pass
 
@@ -92,8 +102,8 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
     @torch.no_grad()
     def predict(self, interaction):
-        user = interaction[self.USER_ID]
-        item = interaction[self.ITEM_ID]
+        user = interaction[self.USER_ID] # (B,)
+        item = interaction[self.ITEM_ID] # (B,)
 
         if self.aggregation == "attention":
             inters = zip(user.tolist(), item.tolist())
@@ -101,7 +111,16 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
             return torch.stack(scores)
         
-        u = self.user_embeddings[user]
+        if self.has_hist_field:
+            # If history field is present in interaction features, we use it while evaluating
+            # as it holds all history up to the current interaction anyways. And it matches
+            # the setting of other models that use history from before the training data.
+            hist = interaction[self.hist_field] # (B, L)
+            rep = self.item_embeddings[hist] # (B, L, dim)
+            u = self._aggregate_history(rep)
+        else:
+            u = self.user_embeddings[user]
+            
         v = self.item_embeddings[item]
 
         return torch.sum(u * v, dim=1)
@@ -109,22 +128,30 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
     @torch.no_grad()
     def full_sort_predict(self, interaction):
-        if self.aggregation == "attention":
-            raise NotImplementedError("Full sort prediction is not supported with attention-based aggregation.")
+        raise NotImplementedError("Full sort prediction is not supported for NewsEmbeddingRecommender.")
+        # if self.aggregation == "attention":
+        #     raise NotImplementedError("Full sort prediction is not supported with attention-based aggregation.")
 
-        user = interaction[self.USER_ID]
+        # user = interaction[self.USER_ID]
 
-        u = self.user_embeddings[user]
-        return u @ self.item_embeddings.t()
+        # u = self.user_embeddings[user]
+        # return u @ self.item_embeddings.t()
 
     @abstractmethod
     def _build_item_embeddings(self, dataset):
         raise NotImplementedError
 
     def _build_user_embeddings(self, dataset):
+        dim = self.item_embeddings.shape[1]
+        
+        hist_field = self.config["hist_field"]
+        if hist_field is not None and hist_field in dataset.inter_feat:
+            self.logger.info(f"Using user history from interaction field '{hist_field}' lazily")
+            self.user_embeddings = torch.zeros((self.n_users, dim), dtype=torch.float32, device=self.device)
+            return
+            
         self.user_hist_items = self._build_user_hist_items(dataset)
         
-        dim = int(self.item_embeddings.shape[1])
         user_emb = torch.zeros((self.n_users, dim), dtype=torch.float32, device=self.device)
 
         for u in range(self.n_users):

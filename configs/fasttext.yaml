@@ -17,5 +17,3 @@ fasttext_dim: 300
 # Non-trainable model
 epochs: 0
 
-# Prevents OOMs
-eval_batch_size: 256

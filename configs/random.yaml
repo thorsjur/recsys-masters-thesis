@@ -3,6 +3,3 @@
 
 # Non-trainable
 epochs: 0
-
-# Prevent OOMs
-eval_batch_size: 256

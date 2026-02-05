@@ -6,6 +6,3 @@ abstract_field: abstract
 
 # Non-trainable model
 epochs: 0
-
-# Prevent OOMs
-eval_batch_size: 256

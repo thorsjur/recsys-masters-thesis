@@ -67,7 +67,6 @@ class NRMS(SequentialRecommender):
 
         self.hidden_size = self.user_encoder.out_dim
 
-        # Cache item titles for fast lookup
         item_feat = dataset.get_item_feature()
         if self.title_field not in item_feat:
             raise KeyError(

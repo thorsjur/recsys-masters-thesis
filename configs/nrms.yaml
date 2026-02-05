@@ -5,16 +5,14 @@ seq_len:
   title: 30
   history_item_id_list: 50
 
-vocab_size: 50000
-padding_idx: 0
-
-
 # hyper params (from paper)
 word_embedding_dim: 300
 num_heads: 16
 head_dim: 16 # output per head
 att_dim: 200 # additive attention hidden/query dim
 emb_dropout: 0.2
+
+# Used for training
 neg_sample_num: 4
 
 # Training (from paper)
@@ -25,7 +23,6 @@ train_batch_size: 64
 freeze_embeddings: true
 embedding_source: "glove"
 embedding_path: "data/glove.6B.300d.txt"
-freeze_embeddings: true
 
 
 
@@ -36,7 +33,7 @@ eval_max_neg_sample_num:
   val: 104 # Should cover about the 90% percentile of all negative impressions
   test: # Use full impressions for test
 eval_shuffle_within_impression: false # We want deterministic evaluation, and no need to shuffle
-eval_batch_size: 256
+
 
 
 
@@ -51,11 +48,7 @@ POSITION_FIELD: null
 #   distribution: uniform
 #   sample_num: 4
 
-# Custom dataloader for training and evaluation.
-custom_dataloader: impression_loader
 
-cand_field: cand_item_id
-pos_index_field: pos_index
 shuffle_within_impression: true
 
 enable_amp: true
