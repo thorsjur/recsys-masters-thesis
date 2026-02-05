@@ -17,6 +17,10 @@ att_dim: 200 # additive attention hidden/query dim
 emb_dropout: 0.2
 neg_sample_num: 4
 
+# Training (from paper)
+optimizer: Adam
+learning_rate: 0.001   # paper says Adam; LR tuned on validation; start here
+train_batch_size: 64
 
 freeze_embeddings: true
 embedding_source: "glove"
@@ -24,14 +28,13 @@ embedding_path: "data/glove.6B.300d.txt"
 freeze_embeddings: true
 
 
-# Training (from paper)
-optimizer: Adam
-learning_rate: 0.001   # paper says Adam; LR tuned on validation; start here
-train_batch_size: 64
 
 # Custom eval args (needed for custom data loader)
-eval_neg_sample_num: -1 # Use full impressions for evaluation
-eval_max_neg_sample_num: 128 # Should cover about the 95% percentile of all negative impressions
+eval_neg_sample_num: # Use full (up to max) impressions for evaluation
+eval_max_neg_sample_num:
+  # Percentiles for MIND: p25=12, p50=31, p75=65, p90=104, p95=128, p99=197
+  val: 104 # Should cover about the 90% percentile of all negative impressions
+  test: # Use full impressions for test
 eval_shuffle_within_impression: false # We want deterministic evaluation, and no need to shuffle
 eval_batch_size: 256
 
@@ -43,7 +46,7 @@ LIST_SUFFIX: _list
 MAX_ITEM_LIST_LENGTH: 50
 POSITION_FIELD: null
 
-# Uses custom negative sampling from within each impression
+# Uses custom impression based negative sampling
 # train_neg_sample_args:
 #   distribution: uniform
 #   sample_num: 4

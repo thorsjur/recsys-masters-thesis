@@ -7,6 +7,8 @@ from dataloaders.base_impression_data_loader import ImpressionDataLoader
 from datasets.opt_sequential_dataset import OptimizedSequentialDataset
 
 
+
+
 class EvalImpressionDataLoader(ImpressionDataLoader):
 
     def __init__(self, config, dataset, sampler=None, shuffle=False):
@@ -14,20 +16,36 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
         if shuffle:
             raise ValueError("EvalImpressionDataLoader should not shuffle evaluation data.")
 
-        self.neg_k = int(config.get("eval_neg_sample_num", 4))
 
         self.shuffle_within_impression = bool(config.get("eval_shuffle_within_impression", False))
 
         super().__init__(config, dataset, sampler, shuffle=shuffle)
         
-        max_neg_k = config["eval_max_neg_sample_num"]
-        if max_neg_k is None:
-            max_len_negs = dataset.inter_feat[config["impr_neg_field"]].shape[-1] - 1
-            self.max_neg_k = max_len_negs
-            self.logger.info(f"eval_max_neg_sample_num not set, using max available negatives: {self.max_neg_k}")
+    def _parse_and_set_neg_sample_args(self, phase: str):
+        max_neg_sample_num = self.config["eval_max_neg_sample_num"]
+        
+        if isinstance(max_neg_sample_num, int):
+            self.logger.info(f"{phase.upper()}: Using eval_max_neg_sample_num: {max_neg_sample_num}")
+            self.max_neg_k = int(max_neg_sample_num)
+        elif isinstance(max_neg_sample_num, dict) and phase in max_neg_sample_num and max_neg_sample_num[phase] is not None:
+            max_neg = max_neg_sample_num[phase]
+            self.logger.info(f"{phase.upper()}: Using eval_max_neg_sample_num: {max_neg}")
+            self.max_neg_k = int(max_neg)
         else:
-            self.max_neg_k = int(max_neg_k)
-            self.logger.info(f"Using eval_max_neg_sample_num: {self.max_neg_k}")
+            max_len_negs = self._dataset.inter_feat[self.impr_neg_field].shape[-1]
+            self.max_neg_k = max_len_negs
+            self.logger.info(f"{phase.upper()}: eval_max_neg_sample_num not set, using max available negatives: {self.max_neg_k}")
+        
+        neg_sample_num = self.config["eval_neg_sample_num"]
+        if isinstance(neg_sample_num, int):
+            self.logger.info(f"{phase.upper()}: Using eval_neg_sample_num: {neg_sample_num}")
+            self.neg_k = neg_sample_num
+        elif isinstance(neg_sample_num, dict) and phase in neg_sample_num and neg_sample_num[phase] is not None:
+            self.logger.info(f"{phase.upper()}: Using eval_neg_sample_num: {neg_sample_num[phase]}")
+            self.neg_k = neg_sample_num[phase]
+        else:
+            self.logger.warning(f"{phase.upper()}: eval_neg_sample_num not set properly, using max available negatives '{self.max_neg_k}'.")
+            self.neg_k = self.max_neg_k
 
     def _init_batch_size_and_step(self):
         batch_size = int(self.config.get("eval_batch_size", self.config.get("test_batch_size", 256)))
@@ -97,3 +115,15 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
 
         interaction_flat = Interaction(flat_data)
         return interaction_flat, row_idx, positive_u, positive_i
+
+class ValImpressionDataLoader(EvalImpressionDataLoader):
+    def __init__(self, config, dataset, sampler=None, shuffle=False):
+        super().__init__(config, dataset, sampler, shuffle=shuffle)
+
+        self._parse_and_set_neg_sample_args(phase="val")
+        
+class TestImpressionDataLoader(EvalImpressionDataLoader):
+    def __init__(self, config, dataset, sampler=None, shuffle=False):
+        super().__init__(config, dataset, sampler, shuffle=shuffle)
+
+        self._parse_and_set_neg_sample_args(phase="test")

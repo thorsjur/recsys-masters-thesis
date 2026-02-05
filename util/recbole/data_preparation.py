@@ -7,7 +7,7 @@ from recbole.data.utils import data_preparation as recbole_data_preparation, cre
 from recbole.utils import set_color
 
 from dataloaders.train_impression_data_loader import TrainImpressionDataLoader
-from dataloaders.eval_impression_data_loader import EvalImpressionDataLoader
+from dataloaders.eval_impression_data_loader import EvalImpressionDataLoader, TestImpressionDataLoader, ValImpressionDataLoader
 
 def create_dataset(config):
     """
@@ -119,7 +119,9 @@ def get_dataloader(config, phase: Literal["train", "valid", "test", "evaluation"
     }
 
     if config["custom_dataloader"] in register_table:
-        return register_table[config["custom_dataloader"]](config, phase)
+        loader = register_table[config["custom_dataloader"]](config, phase)
+        print(f"Using dataloader: {loader.__name__} for phase '{phase}'")
+        return loader 
     else:
         raise ValueError(
             f"Dataloader '{config['custom_dataloader']}' for model '{config['model']}' is not registered."
@@ -141,12 +143,13 @@ def _get_impression_dataloader(config, phase: Literal["train", "valid", "test", 
         raise ValueError(
             "`phase` can only be 'train', 'valid', 'test' or 'evaluation'."
         )
+        
+    if phase == "evaluation":
+        raise ValueError("The 'evaluation' phase has been deprecated, please use 'valid' or 'test' instead.")
 
     if phase == "train":
         return TrainImpressionDataLoader
-    else:
-        eval_mode = config["eval_args"]["mode"][phase]
-        if eval_mode == "full":
-            raise NotImplementedError("Full evaluation for ImpressionLoader is not supported yet")
-        else:
-            return EvalImpressionDataLoader
+    elif phase == "valid":
+        return ValImpressionDataLoader
+    elif phase == "test":
+        return TestImpressionDataLoader
