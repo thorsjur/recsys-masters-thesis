@@ -3,5 +3,5 @@
 
 # Training (needs 1 epoch to count item popularity)
 epochs: 1
-train_batch_size: 2048
-eval_batch_size: 4096
+train_batch_size: 256
+eval_batch_size: 256

@@ -3,7 +3,7 @@
 # Text fields
 title_field: title
 abstract_field: abstract
-use_abstract: true
+use_abstract: false
 
 # User representation
 aggregation: mean  # Options: mean, sum, max
@@ -16,3 +16,6 @@ fasttext_dim: 300
 
 # Non-trainable model
 epochs: 0
+
+# Prevents OOMs
+eval_batch_size: 256
