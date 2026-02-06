@@ -88,6 +88,36 @@ def get_mind_small_minor_preprocessing():
     return config, MINDDataLoader
 
 
+def get_mind_large_impressions():
+    """MIND Small with negative interactions for each interaction."""
+    from etl.converters.mind_impression_converter import MINDImpressionAtomicConverter
+    from etl.processing.base_preprocessor import BasePreprocessor
+    from etl.mind_impression_loader import MINDImpressionDataLoader
+
+    pipeline: list[BasePreprocessor] = [
+        # We do not want to prune, as it might remove items present in the negatives list
+        # (which has no interactions itself). Instead, I rely on the original MIND preprocessing.
+        # RecursivePruner(min_user_hist=1, min_item_freq=1),
+        # Tokenization: We only tokenize title field, as that is the only field currently used.
+        NLTKTokenizer(to_lower=True, item_text_fields=["title"]),
+    ]
+
+    config = DatasetConfig(
+        raw_path="./data/MINDlarge",
+
+        dataset_name="mind_large_impressions",
+        version="large",
+        converter_class=MINDImpressionAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None,
+        
+        # Test is excluded, since MIND Large does not have labels for test set
+        options={"subfolders": ["train", "dev"]},
+    )
+
+    return config, MINDImpressionDataLoader
+
+
 def get_mind_small_impressions():
     """MIND Small with negative interactions for each interaction."""
     from etl.converters.mind_impression_converter import MINDImpressionAtomicConverter
@@ -112,7 +142,6 @@ def get_mind_small_impressions():
     )
 
     return config, MINDImpressionDataLoader
-
 
 def get_mind_mini_impressions():
     """Minified MIND with only 5000 users, for quick testing with impression negatives."""
@@ -175,6 +204,7 @@ DATASET_REGISTRY = {
     "mind_small_minor_preprocessing": get_mind_small_minor_preprocessing,
     "mind_large_no_preprocessing": get_mind_large_no_preprocessing,
     "mind_large_minor_preprocessing": get_mind_large_minor_preprocessing,
+    "mind_large_impressions": get_mind_large_impressions,
     "mind_small_impressions": get_mind_small_impressions,
     "mind_mini_impressions": get_mind_mini_impressions,
 }
