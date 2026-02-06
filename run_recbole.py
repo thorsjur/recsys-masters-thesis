@@ -21,9 +21,17 @@ def get_model_class(model_name):
 
     model_lower = model_name.lower()
 
+
+    # First try to load from custom models
     try:
         module = import_module(f"models.{model_lower}")
-        return getattr(module, model_name)
+        if hasattr(module, model_name):
+            return getattr(module, model_name)
+        for attr_name in dir(module):
+            if attr_name.lower() == model_name.lower() and not attr_name.startswith('_'):
+                return getattr(module, attr_name)
+            
+        raise AttributeError(f"No class matching '{model_name}' found in module")
     except (ImportError, AttributeError):
         pass
 
