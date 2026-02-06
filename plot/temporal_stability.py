@@ -6,6 +6,7 @@ Plots model performance across sliding windows to analyze stability over time.
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 import matplotlib
 
@@ -65,7 +66,8 @@ def plot_temporal_stability(
     elif len(all_data) == 1:
         save_path = out_dir / f"{experiment_ids[0]}_temporal_stability.pdf"
     else:
-        save_path = out_dir / f"comparison_{'_'.join(experiment_ids)}_temporal.pdf"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_path = out_dir / f"comparison_{timestamp}_temporal.pdf"
 
     plt.savefig(save_path, format="pdf", dpi=300, bbox_inches="tight")
     print(f"Saved: {save_path}")
