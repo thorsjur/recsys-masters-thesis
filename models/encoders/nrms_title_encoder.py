@@ -69,17 +69,10 @@ class NRMSTitleEncoder(BaseTextEncoder):
         """
         mask = self._build_token_mask(token_ids, token_mask)
         x = self.embedding(token_ids)
-        if torch.isnan(x).any(): raise RuntimeError("NaN after embedding")
-
         x = self.dropout(x)
-        if torch.isnan(x).any(): raise RuntimeError("NaN after dropout")
 
         h = self.selfatt(x, mask=mask)
-        if torch.isnan(h).any(): raise RuntimeError("NaN after selfatt")
-
         h = self.selfatt_drop(h)
-        if torch.isnan(h).any(): raise RuntimeError("NaN after selfatt_drop")
 
         rep = self.pool(h, mask=mask)
-        if torch.isnan(rep).any(): raise RuntimeError("NaN after pooling")
         return rep
