@@ -4,3 +4,7 @@
 # Training (needs 1 epoch to count item popularity)
 epochs: 1
 train_batch_size: 256
+
+eval_max_neg_sample_num:
+  val: 10 
+  test: 10 # Cap at 10 negatives per positive
