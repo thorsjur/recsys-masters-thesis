@@ -3,3 +3,7 @@
 
 # Non-trainable
 epochs: 0
+
+eval_max_neg_sample_num:
+  val: 10 
+  test: 10 # Cap at 10 negatives per positive
