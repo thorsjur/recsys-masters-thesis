@@ -2,10 +2,10 @@ from typing import Optional
 import numpy as np
 import torch
 import pandas as pd
+from logging import getLogger
 
 from recbole.data.dataset import Dataset
 from recbole.utils.enum_type import FeatureType, FeatureSource
-
 
 
 class OptimizedSequentialDataset(Dataset):
@@ -24,7 +24,6 @@ class OptimizedSequentialDataset(Dataset):
 
         assert self.inter_feat is not None, "Interaction features must be loaded"
         self.inter_feat: pd.DataFrame
-        
 
     # A kinda hacky way to re-parse only the impression history field with newest-truncation,
     # since we want to keep the last L items, not the first L items (history is time-ordered).
@@ -33,7 +32,7 @@ class OptimizedSequentialDataset(Dataset):
         df = super()._load_feat(filepath, source)
         if df is None:
             return None
-        
+
         field = self.impr_hist_field
         if field not in df.columns or self.field2type.get(field) != FeatureType.TOKEN_SEQ:
             self.logger.warning(f"Field '{field}' not found or not TOKEN_SEQ, skipping re-parse.")
@@ -54,10 +53,7 @@ class OptimizedSequentialDataset(Dataset):
         )
         raw.columns = [field]
         raw[field].fillna(value="", inplace=True)
-        parsed = [
-            np.array(list(filter(None, s.split(seq_separator))))
-            for s in raw[field].values
-        ]
+        parsed = [np.array(list(filter(None, s.split(seq_separator)))) for s in raw[field].values]
 
         # Apply newest truncation if seq_len configured
         L = None
@@ -91,11 +87,11 @@ class OptimizedSequentialDataset(Dataset):
             lens = torch.count_nonzero(hist, dim=1)
         else:
             lens = (hist != padding_value).sum(dim=1)
-        lens = lens.to(torch.long) # type: ignore
+        lens = lens.to(torch.long)  # type: ignore
 
         # Build gather indices for right-alignment
-        ar = torch.arange(L, device=device).unsqueeze(0)   # (1, L)
-        pos = lens.unsqueeze(1) - L + ar                   # (N, L)
+        ar = torch.arange(L, device=device).unsqueeze(0)  # (1, L)
+        pos = lens.unsqueeze(1) - L + ar  # (N, L)
         mask = pos >= 0
         pos = pos.clamp(min=0)
 
@@ -107,12 +103,11 @@ class OptimizedSequentialDataset(Dataset):
         if len_field is not None:
             self.inter_feat[len_field] = lens.clamp_max(self.max_item_list_len)
 
-
     def _change_feat_format(self):
         super()._change_feat_format()
         # Register minimal sequential fields (properties only)
         self._sequential_presets_minimal()
-        
+
         self.impr_hist_len_field = f"{self.impr_hist_field}_len"
         self._right_align_token_seq(self.impr_hist_field, padding_value=0, len_field=self.impr_hist_len_field)
 
@@ -139,11 +134,12 @@ class OptimizedSequentialDataset(Dataset):
     @torch.no_grad()
     def get_history(self, inter_index) -> tuple[torch.Tensor, torch.Tensor]:
         assert self.inter_feat is not None
-        assert self.impr_hist_field in self.inter_feat and self.impr_hist_len_field in self.inter_feat, \
-            f"Impression history fields '{self.impr_hist_field}' and '{self.impr_hist_len_field}' must be present in inter_feat."
+        assert (
+            self.impr_hist_field in self.inter_feat and self.impr_hist_len_field in self.inter_feat
+        ), f"Impression history fields '{self.impr_hist_field}' and '{self.impr_hist_len_field}' must be present in inter_feat."
 
         hist_all: torch.Tensor = self.inter_feat[self.impr_hist_field]
-        len_all: torch.Tensor = self.inter_feat[self.impr_hist_len_field] # type: ignore
+        len_all: torch.Tensor = self.inter_feat[self.impr_hist_len_field]  # type: ignore
         device = hist_all.device
 
         if not torch.is_tensor(inter_index):
@@ -151,8 +147,8 @@ class OptimizedSequentialDataset(Dataset):
         else:
             inter_index = inter_index.to(device=device, dtype=torch.long, non_blocking=True)
 
-        hist = hist_all.index_select(0, inter_index)       # (B, M)
-        item_len = len_all.index_select(0, inter_index)    # (B,)
+        hist = hist_all.index_select(0, inter_index)  # (B, M)
+        item_len = len_all.index_select(0, inter_index)  # (B,)
 
         B, M = hist.shape
         L = self.max_item_list_len
@@ -171,11 +167,65 @@ class OptimizedSequentialDataset(Dataset):
 
         return out, item_len
 
-
-
-
     def build(self):
         ordering_args = self.config["eval_args"]["order"]
         if ordering_args != "TO":
             raise ValueError("Sequential recommendation requires eval_args.order == 'TO'")
-        return super().build()
+
+        datasets = super().build()
+
+        # Apply per-phase impression-negatives filtering on the split datasets.
+        phase_names = ["train", "val", "test"]
+        for ds, phase in zip(datasets, phase_names):
+            self._filter_by_impression_negatives(ds, phase)
+
+        return datasets
+
+    def _filter_by_impression_negatives(self, dataset, phase: str):
+        """Drop interactions whose impression-negative count falls outside the
+        configured ``impression_negatives_num_interval``.
+
+        Called after ``build()`` splits the data, so each phase can have its
+        own interval.
+        """
+        logger = getLogger()
+        raw = self.config.get("impression_negatives_num_interval", None)
+        if raw is None:
+            return
+
+        if isinstance(raw, dict):
+            interval_str = raw.get(phase, None)
+        else:
+            interval_str = raw
+
+        interval = self._parse_intervals_str(interval_str)
+        if interval is None:
+            return
+
+        impr_neg_field = self.config["impr_neg_field"]
+        padding_idx = int(self.config.get("padding_idx", 0))
+
+        neg_tensor = dataset.inter_feat[impr_neg_field]
+        neg_counts = (neg_tensor != padding_idx).sum(dim=1)  # (N,)
+
+        keep_mask = torch.tensor(
+            [self._within_intervals(float(c), interval) for c in neg_counts],
+            dtype=torch.bool,
+        )
+        n_before = len(dataset)
+        n_drop = int((~keep_mask).sum().item())
+
+        if n_drop == 0:
+            logger.info(
+                f"{phase.upper()}: impression_negatives_num_interval={interval_str} "
+                f"\u2013 all {n_before} impressions pass, nothing filtered."
+            )
+            return
+
+        keep_idx = keep_mask.nonzero(as_tuple=False).squeeze(1).tolist()
+        dataset.inter_feat = dataset.inter_feat[keep_idx]
+
+        logger.info(
+            f"{phase.upper()}: impression_negatives_num_interval={interval_str} "
+            f"\u2013 dropped {n_drop}/{n_before} impressions, {len(dataset)} remaining."
+        )

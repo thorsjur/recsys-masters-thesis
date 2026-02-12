@@ -119,11 +119,9 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
 class ValImpressionDataLoader(EvalImpressionDataLoader):
     def __init__(self, config, dataset, sampler=None, shuffle=False):
         super().__init__(config, dataset, sampler, shuffle=shuffle)
-
         self._parse_and_set_neg_sample_args(phase="val")
         
 class TestImpressionDataLoader(EvalImpressionDataLoader):
     def __init__(self, config, dataset, sampler=None, shuffle=False):
         super().__init__(config, dataset, sampler, shuffle=shuffle)
-
         self._parse_and_set_neg_sample_args(phase="test")
