@@ -5,13 +5,13 @@
 epochs: 0
 
 eval_max_neg_sample_num:
-  val: 5 
-  test: 5 # Cap at 10 negatives per positive
+  val: 9 
+  test: 9 # Cap at 9 negatives per positive
 
-# Keep only impressions with at least 10 negatives so that
+# Keep only impressions with at least 9 negatives so that
 # the instability in results are less dependent on size of negatives.
 # Should be used together with the eval_max_neg_sample num setting.
 impression_negatives_num_interval:
   train:
-  val: "[5,inf)"
-  test: "[5,inf)"
+  val: "[9,inf)"
+  test: "[9,inf)"
