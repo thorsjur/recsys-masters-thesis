@@ -5,13 +5,13 @@ import os
 
 import torch
 
-from models.embeddings.embedding_provider import BaseEmbeddingProvider, register_provider
+from models.embeddings.token_embedding_provider import BaseTokenEmbeddingProvider, register_token_provider
 from pathlib import Path
 import numpy as np
 
 
-@register_provider("glove")
-class GloveProvider(BaseEmbeddingProvider):
+@register_token_provider("glove")
+class GloveProvider(BaseTokenEmbeddingProvider):
     """
     Loads a GloVe text file and builds an embedding matrix
     """

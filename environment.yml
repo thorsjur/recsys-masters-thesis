@@ -42,3 +42,6 @@ dependencies:
 
     # Not used at all, but required as RecBole forces you to install dependencies for other modules
     - kmeans-pytorch==0.3
+
+    # Used for SBERT
+    - sentence-transformers

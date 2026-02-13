@@ -22,7 +22,7 @@ def create_dataset(config):
         "opt_sequential": "OptimizedSequentialDataset",
     }
     
-    dataset_module = importlib.import_module("datasets")
+    dataset_module = importlib.import_module("custom_datasets")
     if custom_dataset is None or custom_dataset not in c_dataset_registry or not hasattr(dataset_module, c_dataset_registry[custom_dataset]):
         logger.info("Using RecBole built-in dataset class.")
         return recbole_create_dataset(config)

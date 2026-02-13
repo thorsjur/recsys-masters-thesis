@@ -27,3 +27,5 @@ log_tensorboard/**
 saved/**
 temp/**
 plot/output/**
+
+cache/**

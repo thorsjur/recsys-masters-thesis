@@ -32,8 +32,9 @@ def get_model_class(model_name):
                 return getattr(module, attr_name)
             
         raise AttributeError(f"No class matching '{model_name}' found in module")
-    except (ImportError, AttributeError):
-        pass
+    except (ImportError, AttributeError) as e:
+        print(f"Error importing model '{model_name}': {e}")
+        print(f"Model '{model_name}' not found in custom models, trying RecBole models...")
 
     # Try to load from recbole models, this needs to be expanded if other models
     # are to be used.

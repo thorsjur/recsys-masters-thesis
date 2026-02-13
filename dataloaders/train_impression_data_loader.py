@@ -5,7 +5,7 @@ import torch
 
 from recbole.data.interaction import Interaction
 
-from datasets.opt_sequential_dataset import OptimizedSequentialDataset
+from custom_datasets.opt_sequential_dataset import OptimizedSequentialDataset
 
 
 class TrainImpressionDataLoader(ImpressionDataLoader):

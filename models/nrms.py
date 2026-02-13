@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from recbole.model.abstract_recommender import SequentialRecommender
 from recbole.utils import InputType
 
-from models.embeddings.embedding_provider import build_embedding_provider
+from models.embeddings.token_embedding_provider import build_token_embedding_provider
 from models.encoders import NRMSTitleEncoder, NRMSUserEncoder, BaseTextEncoder, BaseUserEncoder
 
 
@@ -32,7 +32,7 @@ class NRMS(SequentialRecommender):
         self.cand_field = config.get("cand_field", "cand_item_id")
         self.pos_index_field = config.get("pos_index_field", "pos_index")
 
-        provider = build_embedding_provider(
+        provider = build_token_embedding_provider(
             config=config,
             dataset=dataset,
             field=self.title_field,
