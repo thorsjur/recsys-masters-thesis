@@ -27,11 +27,11 @@ embedding_path: "data/glove.6B.300d.txt"
 
 
 # Custom eval args (needed for custom data loader)
-eval_neg_sample_num: # Use full (up to max) impressions for evaluation
-eval_max_neg_sample_num:
-  # Percentiles for MIND: p25=12, p50=31, p75=65, p90=104, p95=128, p99=197
-  val: 104 # Should cover about the 90% percentile of all negative impressions
-  test: # Use full impressions for test
+# eval_neg_sample_num: # Use full (up to max) impressions for evaluation
+# eval_max_neg_sample_num:
+#   # Percentiles for MIND: p25=12, p50=31, p75=65, p90=104, p95=128, p99=197
+#   val: 104 # Should cover about the 90% percentile of all negative impressions
+#   test: # Use full impressions for test
 eval_shuffle_within_impression: false # We want deterministic evaluation, and no need to shuffle
 
 
