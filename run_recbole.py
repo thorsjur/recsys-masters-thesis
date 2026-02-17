@@ -96,6 +96,8 @@ def main():
     )
 
     config_file_list = []
+    
+    model_name = args.model.split("_")[0]  # Get base model name for config loading (e.g., "SBERT" from "SBERT_multilingual")
 
     
     # Add env config if exists and not already in list
@@ -109,7 +111,7 @@ def main():
         config_file_list.append(dataset_config)
 
     # Add model config if exists and not already in list
-    model_config = f"configs/{args.model.lower()}.yaml"
+    model_config = f"configs/{model_name.lower()}.yaml"
     if os.path.exists(model_config) and model_config not in config_file_list:
         config_file_list.append(model_config)
 
@@ -131,7 +133,7 @@ def main():
             except:
                 config_dict[key] = value
 
-    model_class = get_model_class(args.model)
+    model_class = get_model_class(model_name)  # Get base model name for config loading (e.g., "SBERT" from "SBERT_multilingual")
 
     config = CConfig(
         model=model_class, dataset=args.dataset, config_file_list=config_file_list, config_dict=config_dict

@@ -14,3 +14,7 @@ impression_negatives_num_interval:
   train:
   val: "[9,inf)"
   test: "[9,inf)"
+
+
+sentence_embedding_model: sentence-transformers/distiluse-base-multilingual-cased-v2
+sentence_embedding_dim: 512 # This needs to match the output of the model defined above

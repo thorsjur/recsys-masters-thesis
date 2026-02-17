@@ -8,11 +8,17 @@ class SBERT(NewsEmbeddingRecommender):
     """
     SBERT-based non-trainable news recommender.
     """
+    
+    @property
+    def dim(self):
+        return int(self.config.get("sentence_embedding_dim", 384))
 
     def __init__(self, config, dataset):
-        self.embedding_provider = SBERTProvider(config=config, dim=384)
+        self.config = config
+        self.embedding_provider = SBERTProvider(config=config, dim=self.dim)
         
         super().__init__(config, dataset)
+        
 
     def _build_item_embeddings(self, dataset):
         self.item_embeddings = self.embedding_provider.encode(

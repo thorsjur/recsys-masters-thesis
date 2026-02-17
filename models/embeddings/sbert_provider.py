@@ -1,33 +1,3 @@
-"""
-SBERT (Sentence-BERT) provider – encodes sentences via a ``sentence-transformers``
-model from HuggingFace.
-
-Design goals
-------------
-* **No duplicate downloads** – the model is loaded once and reused across calls.
-* **Local disk cache** – embeddings for identical sentences are persisted in a
-  ``shelve``-backed cache so repeated runs skip the model entirely.
-* **Memory-efficient batching** – encoding happens in configurable batches with
-  ``torch.no_grad()`` and optional FP16 / BF16 inference.
-
-Config keys
------------
-``sentence_embedding_model`` : str
-    HuggingFace model name or path (default ``"all-MiniLM-L6-v2"``).
-``sentence_embedding_cache_dir`` : str | None
-    Directory to store the shelve cache (default ``"./cache/sentence_embeddings"``).
-``sentence_embedding_device`` : str | None
-    Torch device for the model (default: auto-detected).
-``sentence_embedding_batch_size`` : int
-    Batch size for encoding (default ``128``).
-``sentence_embedding_normalize`` : bool
-    L2-normalize embeddings (default ``True``).
-``sentence_embedding_fp16`` : bool
-    Run the model in float16 for faster inference (default ``False``).
-"""
-
-from __future__ import annotations
-
 import hashlib
 import os
 import shelve
