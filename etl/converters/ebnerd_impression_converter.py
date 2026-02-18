@@ -1,11 +1,12 @@
 from typing import Dict
-from etl.converters.mind_converter import MINDAtomicConverter
+from etl.converters.ebnerd_converter import EBNeRDAtomicConverter
 
-class MINDImpressionAtomicConverter(MINDAtomicConverter):
+
+class EBNeRDImpressionAtomicConverter(EBNeRDAtomicConverter):
     """
-    Only difference from MINDAtomicConverter is the addition of 'neg_item_id_list' field and removal of 'label' field.
+    Only difference from EBNeRDAtomicConverter is the addition of 'neg_item_id_list' field and removal of 'label' field.
     """
-    
+
     def __init__(self, config, df_inter_loaded=None, df_item_loaded=None):
         super().__init__(config, df_inter_loaded, df_item_loaded)
 

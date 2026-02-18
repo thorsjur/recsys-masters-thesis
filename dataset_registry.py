@@ -223,6 +223,72 @@ def get_mind_large_minor_preprocessing():
     return config, MINDDataLoader
 
 
+def get_ebnerd_demo_impressions():
+    """EB-NeRD demo with impression negatives."""
+    from etl.converters.ebnerd_impression_converter import EBNeRDImpressionAtomicConverter
+    from etl.ebnerd_impression_loader import EBNeRDImpressionDataLoader
+
+    pipeline: list = [
+        NLTKTokenizer(to_lower=True, item_text_fields=["title"]),
+    ]
+
+    config = DatasetConfig(
+        raw_path="./data/EBNeRDdemo",
+        dataset_name="ebnerd_demo_impressions",
+        version="demo",
+        converter_class=EBNeRDImpressionAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None,
+        options={"subfolders": ["train", "validation"], "max_history_items": 50},
+    )
+
+    return config, EBNeRDImpressionDataLoader
+
+
+def get_ebnerd_small_impressions():
+    """EB-NeRD small with impression negatives."""
+    from etl.converters.ebnerd_impression_converter import EBNeRDImpressionAtomicConverter
+    from etl.ebnerd_impression_loader import EBNeRDImpressionDataLoader
+
+    pipeline: list = [
+        NLTKTokenizer(to_lower=True, item_text_fields=["title"]),
+    ]
+
+    config = DatasetConfig(
+        raw_path="./data/EBNeRDsmall",
+        dataset_name="ebnerd_small_impressions",
+        version="small",
+        converter_class=EBNeRDImpressionAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None,
+        options={"subfolders": ["train", "validation"], "max_history_items": 50},
+    )
+
+    return config, EBNeRDImpressionDataLoader
+
+
+def get_ebnerd_large_impressions():
+    """EB-NeRD large with impression negatives."""
+    from etl.converters.ebnerd_impression_converter import EBNeRDImpressionAtomicConverter
+    from etl.ebnerd_impression_loader import EBNeRDImpressionDataLoader
+
+    pipeline: list = [
+        NLTKTokenizer(to_lower=True, item_text_fields=["title"]),
+    ]
+
+    config = DatasetConfig(
+        raw_path="./data/EBNeRDlarge",
+        dataset_name="ebnerd_large_impressions",
+        version="large",
+        converter_class=EBNeRDImpressionAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None,
+        options={"subfolders": ["train", "validation"], "max_history_items": 50},
+    )
+
+    return config, EBNeRDImpressionDataLoader
+
+
 DATASET_REGISTRY = {
     "mind_small_baseline": get_mind_small_baseline,
     "mind_small_no_preprocessing": get_mind_no_preprocessing,
@@ -233,6 +299,9 @@ DATASET_REGISTRY = {
     "mind_medium_impressions": get_mind_medium_impressions,
     "mind_small_impressions": get_mind_small_impressions,
     "mind_mini_impressions": get_mind_mini_impressions,
+    "ebnerd_demo_impressions": get_ebnerd_demo_impressions,
+    "ebnerd_small_impressions": get_ebnerd_small_impressions,
+    "ebnerd_large_impressions": get_ebnerd_large_impressions,
 }
 
 

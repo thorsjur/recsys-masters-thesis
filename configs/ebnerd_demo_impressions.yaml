@@ -1,0 +1,42 @@
+# EB-NeRD demo with impressions Dataset Configuration
+
+# Field definitions
+USER_ID_FIELD: user_id
+ITEM_ID_FIELD: item_id
+TIME_FIELD: timestamp
+
+# Data loading
+load_col:
+  inter: [user_id, item_id, neg_item_id_list, history_item_id_list, timestamp, impression_id]
+  item: [item_id, title]
+
+# Ensure item ids and negatives are mapped to the same ID space
+alias_of_item_id: [neg_item_id_list, history_item_id_list]
+
+# These are temporary values, and will be overwritten programmatically.
+# They define the splits used for respectively train, validation and test.
+# benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']
+
+# Filtering (Within each window, we only retain users and items with interactions)
+user_inter_num_interval: "[1,inf)"
+item_inter_num_interval: "[0,inf)"
+filter_inter_by_user_or_item: true
+
+# Custom dataset to prevent OOM errors on creation, as
+# RecBole uses more memory than is necessary (for our use case).
+custom_dataset: opt_sequential
+
+# Custom dataloader for training and evaluation.
+custom_dataloader: impression_loader
+
+# pre-generated splits from ETL
+eval_args:
+  split: {'LS': 'valid_and_test'}
+  group_by: none
+  order: TO
+  mode: {'valid': 'uni4', 'test': 'uni4'}
+
+# Metrics
+metrics: ['Recall', 'NDCG', 'Hit', 'Precision', 'MRR', 'GAUC']
+topk: [1, 5, 10]
+valid_metric: NDCG@5
