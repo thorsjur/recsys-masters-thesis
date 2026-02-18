@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type, Tuple, Union
+from typing import List, Optional, Set, Type, Tuple, Union
+import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
 
 from etl.converters.base_converter import BaseAtomicConverter
-from etl.processing.base_preprocessor import BasePreprocessor
+from etl.processing.base_preprocessor import BasePreprocessor, BaseEarlyPreprocessor
 from etl.splitters.base_splitter import BaseSplitter
 
 @dataclass
@@ -76,11 +77,32 @@ class AbstractDataLoader(ABC):
         """Load raw data into df_inter and df_item."""
         pass
 
+    # ------------------------------------------------------------------
+    # Early user filtering (BaseEarlyPreprocessor support)
+    # ------------------------------------------------------------------
+
+    def _resolve_early_user_filter(self, all_user_ids: np.ndarray) -> Optional[Set]:
+        """Run any :class:`BaseEarlyPreprocessor` instances in the pipeline."""
+        early = [p for p in self.config.preprocessors if isinstance(p, BaseEarlyPreprocessor)]
+        if not early:
+            return None
+
+        selected = all_user_ids
+        for ep in early:
+            selected = ep.select_users(selected)
+
+        return set(selected)
+
     def _preprocess_content(self):
-        """Apply preprocessing steps from config."""
-        print(f"[{self.__class__.__name__}] Running {len(self.config.preprocessors)} preprocessors...")
-        
-        for processor in self.config.preprocessors:
+        """Apply preprocessing steps from config.
+
+        :class:`BaseEarlyPreprocessor` instances are skipped here because
+        they have already been applied during raw-data loading.
+        """
+        regular = [p for p in self.config.preprocessors if not isinstance(p, BaseEarlyPreprocessor)]
+        print(f"[{self.__class__.__name__}] Running {len(regular)} preprocessors...")
+
+        for processor in regular:
             self.df_inter, self.df_item = processor.process(self.df_inter, self.df_item)
 
     def _export_atomic_files(self):

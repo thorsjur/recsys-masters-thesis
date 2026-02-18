@@ -289,6 +289,33 @@ def get_ebnerd_large_impressions():
     return config, EBNeRDImpressionDataLoader
 
 
+def get_ebnerd_medium_impressions():
+    """EB-NeRD medium: 200k users sampled from large, with impression negatives."""
+    from etl.converters.ebnerd_impression_converter import EBNeRDImpressionAtomicConverter
+    from etl.ebnerd_impression_loader import EBNeRDImpressionDataLoader
+    from etl.processing.user_sampler import UserSampler
+
+    pipeline: list = [
+        UserSampler(n_users=200_000, seed=42),
+        NLTKTokenizer(to_lower=True, item_text_fields=["title"]),
+    ]
+
+    config = DatasetConfig(
+        raw_path="./data/EBNeRDlarge",
+        dataset_name="ebnerd_medium_impressions",
+        version="large",
+        converter_class=EBNeRDImpressionAtomicConverter,
+        preprocessors=pipeline,
+        splitter=None,
+        options={
+            "subfolders": ["train", "validation"],
+            "max_history_items": 50,
+        },
+    )
+
+    return config, EBNeRDImpressionDataLoader
+
+
 DATASET_REGISTRY = {
     "mind_small_baseline": get_mind_small_baseline,
     "mind_small_no_preprocessing": get_mind_no_preprocessing,
@@ -302,6 +329,7 @@ DATASET_REGISTRY = {
     "ebnerd_demo_impressions": get_ebnerd_demo_impressions,
     "ebnerd_small_impressions": get_ebnerd_small_impressions,
     "ebnerd_large_impressions": get_ebnerd_large_impressions,
+    "ebnerd_medium_impressions": get_ebnerd_medium_impressions,
 }
 
 

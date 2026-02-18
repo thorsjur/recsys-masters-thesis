@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Optional, Set, Tuple
 import os
 
 import numpy as np
@@ -69,7 +69,12 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
             df["item_id"] = df["item_id"].astype("category")
         return df
 
-    def _load_behaviors_file(self, path: str, impression_id_offset: int = 0) -> Tuple[pd.DataFrame, int]:
+    def _load_behaviors_file(
+        self,
+        path: str,
+        impression_id_offset: int = 0,
+        sampled_users: Optional[Set] = None,
+    ) -> Tuple[pd.DataFrame, int]:
         """Load and process behaviors.tsv from a single directory."""
         behaviors_path = os.path.join(path, "behaviors.tsv")
         folder_name = os.path.basename(path)
@@ -88,6 +93,7 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         chunks: List[pd.DataFrame] = []
         rows_processed = 0
         rows_created = 0
+        rows_filtered = 0
 
         with tqdm(
             total=total_lines,
@@ -98,6 +104,16 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         ) as pbar:
             for chunk_idx, chunk in enumerate(chunk_iterator):
                 chunk_size = len(chunk)
+
+                # Early user filtering (before expensive processing)
+                if sampled_users is not None:
+                    chunk = chunk[chunk["user_id"].isin(sampled_users)]
+                    rows_filtered += chunk_size - len(chunk)
+                    if chunk.empty:
+                        rows_processed += chunk_size
+                        pbar.update(chunk_size)
+                        continue
+
                 processed = self._process_behaviors_chunk(chunk)
 
                 required_cols = {"user_id", "item_id", "timestamp", "impression_id"}
@@ -122,11 +138,35 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
                     refresh=False,
                 )
 
-        result = pd.concat(chunks, ignore_index=True)
+        if not chunks:
+            result = pd.DataFrame(columns=["user_id", "item_id", "timestamp", "impression_id"])
+        else:
+            result = pd.concat(chunks, ignore_index=True)
         del chunks
+
+        if sampled_users is not None:
+            print(f"  [{folder_name}] Early user filter: kept {rows_processed - rows_filtered:,} / {rows_processed:,} rows")
 
         result = self._finalize_interactions_df(result)
         return result, rows_processed
+
+    # ------------------------------------------------------------------
+    # Early user filtering (delegates to BaseEarlyPreprocessor pipeline)
+    # ------------------------------------------------------------------
+
+    def _gather_all_user_ids(self, data_paths: List[str]) -> np.ndarray:
+        """Read only the ``user_id`` column from every behaviours file
+        and return the deduplicated union as a numpy array.
+        """
+        all_users: set = set()
+        for path in data_paths:
+            bp = os.path.join(path, "behaviors.tsv")
+            if os.path.isfile(bp):
+                uids = pd.read_csv(
+                    bp, sep="\t", header=None, usecols=[1], names=["user_id"],
+                )["user_id"].unique()
+                all_users.update(uids)
+        return np.array(list(all_users))
 
     def _load_raw_data(self):
         """Load raw MIND data from one or more directories."""
@@ -142,12 +182,17 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
 
         # Behaviors
         print("Loading behaviors files...")
+
+        # Determine users to keep (None = all) via early preprocessors
+        all_user_ids = self._gather_all_user_ids(data_paths)
+        sampled_users = self._resolve_early_user_filter(all_user_ids)
+
         interactions_dfs: List[pd.DataFrame] = []
         impression_id_offset = 0
         total_rows = 0
 
         for path in data_paths:
-            df, rows = self._load_behaviors_file(path, impression_id_offset)
+            df, rows = self._load_behaviors_file(path, impression_id_offset, sampled_users)
             interactions_dfs.append(df)
             total_rows += rows
             impression_id_offset = int(df["impression_id"].max()) + 1

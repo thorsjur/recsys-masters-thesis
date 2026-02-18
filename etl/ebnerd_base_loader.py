@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Optional, Set, Tuple
 import os
 
 import numpy as np
@@ -60,7 +60,8 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
 
         if has_times:
             print("Sorting user histories chronologically...")
-            df["article_id_fixed"] = df.apply(
+            tqdm.pandas(desc="Sorting histories", unit="users")
+            df["article_id_fixed"] = df.progress_apply(  # type: ignore[operator]
                 lambda row: self._sort_history_by_time(row["article_id_fixed"], row["impression_time_fixed"]),
                 axis=1,
             )
@@ -174,17 +175,31 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
             df["item_id"] = df["item_id"].astype("category")
         return df
 
-    def _load_behaviors_file(self, path: str, impression_id_offset: int = 0) -> Tuple[pd.DataFrame, int]:
+    def _load_behaviors_file(
+        self,
+        path: str,
+        impression_id_offset: int = 0,
+        sampled_users: Optional[Set] = None,
+    ) -> Tuple[pd.DataFrame, int]:
         """Load and process behaviors.parquet (+ history.parquet) from a single directory."""
         behaviors_path = os.path.join(path, "behaviors.parquet")
         folder_name = os.path.basename(path)
 
         df_behaviors = pd.read_parquet(behaviors_path)
 
+        # Early user filtering (before expensive history augmentation)
+        if sampled_users is not None:
+            before = len(df_behaviors)
+            df_behaviors = df_behaviors[df_behaviors["user_id"].isin(sampled_users)].reset_index(drop=True)
+            print(f"  [{folder_name}] Early user filter: {before:,} → {len(df_behaviors):,} behaviours")
+
         # Merge user click history from separate history file
         history_df = self._load_history_file(path)
         if not history_df.empty:
+            if sampled_users is not None:
+                history_df = history_df[history_df["user_id"].isin(sampled_users)].reset_index(drop=True)
             df_behaviors = df_behaviors.merge(history_df, on="user_id", how="left")
+            del history_df
 
         # Augment each impression's history with prior behaviour clicks
         df_behaviors = self._augment_user_histories(df_behaviors)
@@ -241,6 +256,22 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         result = self._finalize_interactions_df(result)
         return result, total_rows
 
+    # ------------------------------------------------------------------
+    # Early user filtering (delegates to BaseEarlyPreprocessor pipeline)
+    # ------------------------------------------------------------------
+
+    def _gather_all_user_ids(self, data_paths: List[str]) -> np.ndarray:
+        """Read only the ``user_id`` column from every behaviours file
+        and return the deduplicated union as a numpy array.
+        """
+        all_users: set = set()
+        for path in data_paths:
+            bp = os.path.join(path, "behaviors.parquet")
+            if os.path.isfile(bp):
+                uids = pd.read_parquet(bp, columns=["user_id"])["user_id"].unique()
+                all_users.update(uids)
+        return np.array(list(all_users))
+
     def _load_raw_data(self):
         """Load raw EB-NeRD data from one or more directories."""
         data_paths = self._get_data_paths()
@@ -255,12 +286,17 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
 
         # Behaviors
         print("Loading behaviors files...")
+
+        # Determine users to keep (None = all) via early preprocessors
+        all_user_ids = self._gather_all_user_ids(data_paths)
+        sampled_users = self._resolve_early_user_filter(all_user_ids)
+
         interactions_dfs: List[pd.DataFrame] = []
         impression_id_offset = 0
         total_rows = 0
 
         for path in data_paths:
-            df, rows = self._load_behaviors_file(path, impression_id_offset)
+            df, rows = self._load_behaviors_file(path, impression_id_offset, sampled_users)
             interactions_dfs.append(df)
             total_rows += rows
             impression_id_offset = int(df["impression_id"].max()) + 1
