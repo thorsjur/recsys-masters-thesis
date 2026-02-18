@@ -42,22 +42,119 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
     def _load_history_file(self, path: str) -> pd.DataFrame:
         """Load history.parquet from a single data-split directory.
 
-        If ``max_history_items`` is set in config options, each user's
-        article list is truncated to the **last** K items (most recent).
+        Each user's article list is sorted chronologically by
+        ``impression_time_fixed``.  Truncation to ``max_history_items``
+        is deferred to :meth:`_augment_user_histories` so that clicks
+        from ``behaviors.parquet`` can be included first.
         """
         history_path = os.path.join(path, "history.parquet")
         if not os.path.isfile(history_path):
             return pd.DataFrame(columns=["user_id", "article_id_fixed"])
 
-        df = pd.read_parquet(history_path, columns=["user_id", "article_id_fixed"])
+        try:
+            df = pd.read_parquet(history_path, columns=["user_id", "article_id_fixed", "impression_time_fixed"])
+            has_times = True
+        except Exception:
+            df = pd.read_parquet(history_path, columns=["user_id", "article_id_fixed"])
+            has_times = False
+
+        if has_times:
+            print("Sorting user histories chronologically...")
+            df["article_id_fixed"] = df.apply(
+                lambda row: self._sort_history_by_time(row["article_id_fixed"], row["impression_time_fixed"]),
+                axis=1,
+            )
+            df = df.drop(columns=["impression_time_fixed"])
+
+        return df
+
+    @staticmethod
+    def _sort_history_by_time(article_ids, impression_times):
+        """Return *article_ids* sorted chronologically by *impression_times*."""
+        if article_ids is None or not hasattr(article_ids, "__len__") or len(article_ids) <= 1:
+            return article_ids if not hasattr(article_ids, "tolist") else article_ids.tolist()
+
+        ids = np.asarray(article_ids)
+        times = np.asarray(impression_times)
+        order = np.argsort(times)
+        return ids[order].tolist()
+
+    # ------------------------------------------------------------------
+    # History augmentation: merge base history + prior behaviour clicks
+    # ------------------------------------------------------------------
+
+    def _augment_user_histories(self, df_behaviors: pd.DataFrame) -> pd.DataFrame:
+        """Augment each impression's history with clicked items from earlier impressions.
+
+        For every impression row the resulting ``article_id_fixed`` column
+        contains::
+
+            base_history (from history.parquet, chronological)
+            + clicked items from all strictly *earlier* impressions in behaviours
+
+        The combined list is then truncated to the last
+        ``max_history_items`` entries (most-recent) when that config
+        option is set.
+
+        The DataFrame is returned sorted by ``(user_id, impression_time)``
+        so that subsequent chunked processing sees rows in temporal order.
+        """
+        has_history = "article_id_fixed" in df_behaviors.columns
+        has_clicks = "article_ids_clicked" in df_behaviors.columns
+
+        if not has_clicks:
+            return df_behaviors
 
         max_hist = self.config.options.get("max_history_items")
-        if max_hist is not None:
-            print(f"Truncating user histories to last {max_hist} items...")
-            df["article_id_fixed"] = df["article_id_fixed"].apply(
-                lambda lst: lst[-max_hist:] if lst is not None and hasattr(lst, '__len__') and len(lst) > max_hist else lst
-            )
 
+        # Ensure a deterministic chronological order per user.
+        df = df_behaviors.copy()
+        df["_sort_ts"] = df["impression_time"].astype("datetime64[ns]").astype(np.int64)
+        df = df.sort_values(["user_id", "_sort_ts", "impression_id"]).reset_index(drop=True)
+
+        # Pre-extract columns for fast row-level iteration.
+        user_ids = df["user_id"].to_numpy()
+        clicked_lists = df["article_ids_clicked"].tolist()
+        base_histories = df["article_id_fixed"].tolist() if has_history else [None] * len(df)
+
+        n = len(df)
+        augmented: List = [None] * n
+
+        prev_user = None
+        cum_clicks: List = []  # clicks accumulated from prior impressions
+        base: List = []        # base history from history.parquet (per user)
+
+        for i in range(n):
+            uid = user_ids[i]
+
+            # ---- new user: reset accumulators ----
+            if uid != prev_user:
+                prev_user = uid
+                cum_clicks = []
+                h = base_histories[i]
+                if h is not None and not (isinstance(h, float) and np.isnan(h)):
+                    base = list(h)  # type: ignore[arg-type]
+                else:
+                    base = []
+
+            # History for *this* impression = base + prior clicks
+            full = base + cum_clicks
+            if max_hist is not None and len(full) > max_hist:
+                full = full[-max_hist:]
+            augmented[i] = full
+
+            # Add this impression's clicks for subsequent impressions.
+            clicked = clicked_lists[i]
+            if clicked is not None and hasattr(clicked, "__len__") and len(clicked) > 0:
+                cum_clicks.extend(clicked)
+
+        df["article_id_fixed"] = augmented
+        df = df.drop(columns=["_sort_ts"])
+
+        print(
+            f"Augmented user histories with behaviour clicks"
+            f"{f' (truncated to last {max_hist})' if max_hist else ''}."
+        )
         return df
 
     @abstractmethod
@@ -88,6 +185,9 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         history_df = self._load_history_file(path)
         if not history_df.empty:
             df_behaviors = df_behaviors.merge(history_df, on="user_id", how="left")
+
+        # Augment each impression's history with prior behaviour clicks
+        df_behaviors = self._augment_user_histories(df_behaviors)
 
         total_rows = len(df_behaviors)
         total_chunks = (total_rows + self.CHUNK_SIZE - 1) // self.CHUNK_SIZE

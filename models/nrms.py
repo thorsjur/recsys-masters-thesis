@@ -16,7 +16,6 @@ class NRMS(SequentialRecommender):
         super().__init__(config, dataset)
 
         self.title_field: str = config["title_field"]
-        self.title_len: int = int(config["title_len"])
         self.vocab_size: int = dataset.num(self.title_field)
         self.padding_idx: int = int(config.get("padding_idx", 0))
 
@@ -79,10 +78,11 @@ class NRMS(SequentialRecommender):
             title_tokens = torch.tensor(title_tokens, dtype=torch.long)
         title_tokens = title_tokens.long()
 
-        if title_tokens.dim() != 2 or title_tokens.size(1) != self.title_len:
+        if title_tokens.dim() != 2:
             raise ValueError(
-                f"Expected '{self.title_field}' of shape (n_items, title_len={self.title_len}), got {tuple(title_tokens.shape)}"
+                f"Expected '{self.title_field}' to be 2-D (n_items, seq_len), got {title_tokens.dim()}-D"
             )
+        self.title_len = title_tokens.size(1)
         self.register_buffer("item_title_tokens", title_tokens)
         
         pad_title = self.item_title_tokens[self.padding_idx]
