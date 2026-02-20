@@ -14,12 +14,21 @@ class BERT(NewsEmbeddingRecommender):
     BERT-based non-trainable news recommender.
     """
 
+    LAYER_STRATEGIES = ("last", "second_to_last", "sum_last_four", "concat_last_four")
+
     def __init__(self, config, dataset):
         self.bert_model_name = config["bert_model_name"] if "bert_model_name" in config else "bert-base-uncased"
         self.max_length = config["bert_max_length"] if "bert_max_length" in config else 128
         self.pooling = config["bert_pooling"] if "bert_pooling" in config else "cls"
         self.batch_size = config["bert_batch_size"] if "bert_batch_size" in config else 32
+        self.layer_strategy = config["bert_layer_strategy"] if "bert_layer_strategy" in config else "last"
         
+        if self.layer_strategy not in self.LAYER_STRATEGIES:
+            raise ValueError(
+                f"Unknown bert_layer_strategy='{self.layer_strategy}'. "
+                f"Must be one of {self.LAYER_STRATEGIES}."
+            )
+
         self.use_cache = config["bert_use_cache"] if "bert_use_cache" in config else True
         self.cache_dir = config["bert_cache_dir"] if "bert_cache_dir" in config else "~/.cache/news_bert"
         
@@ -46,7 +55,8 @@ class BERT(NewsEmbeddingRecommender):
             
         self.logger.info(
             f"Initializing BERT encoder: model={self.bert_model_name}, "
-            f"max_length={self.max_length}, pooling={self.pooling}, batch_size={self.batch_size}"
+            f"max_length={self.max_length}, pooling={self.pooling}, "
+            f"layer_strategy={self.layer_strategy}, batch_size={self.batch_size}"
         )
 
         tokenizer = AutoTokenizer.from_pretrained(self.bert_model_name)
@@ -59,7 +69,10 @@ class BERT(NewsEmbeddingRecommender):
         import tempfile
         
         # Get embedding dimension from model config
-        embed_dim = model.config.hidden_size
+        hidden_size = model.config.hidden_size
+        embed_dim = hidden_size * 4 if self.layer_strategy == "concat_last_four" else hidden_size
+        
+        need_hidden_states = self.layer_strategy != "last"
         
         # Create memory-mapped array for incremental writes
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mmap')
@@ -93,8 +106,10 @@ class BERT(NewsEmbeddingRecommender):
                     )
                     encoded = {k: v.to(self.device) for k, v in encoded.items()}
 
-                    outputs = model(**encoded)
-                    hidden = outputs.last_hidden_state
+                    outputs = model(**encoded, output_hidden_states=need_hidden_states)
+
+                    # Select hidden representation based on layer strategy
+                    hidden = self._select_hidden(outputs)
 
                     if self.pooling == "cls":
                         emb = hidden[:, 0, :]
@@ -144,6 +159,24 @@ class BERT(NewsEmbeddingRecommender):
         
 
 
+    def _select_hidden(self, outputs) -> torch.Tensor:
+        if self.layer_strategy == "last":
+            return outputs.last_hidden_state
+
+        # All other strategies require the full hidden-state tuple
+        all_hidden = outputs.hidden_states  # tuple of (batch, seq_len, hidden_size)
+
+        if self.layer_strategy == "second_to_last":
+            return all_hidden[-2]
+
+        if self.layer_strategy == "sum_last_four":
+            return torch.stack(all_hidden[-4:]).sum(dim=0)
+
+        if self.layer_strategy == "concat_last_four":
+            return torch.cat(all_hidden[-4:], dim=-1)
+
+        raise ValueError(f"Unknown bert_layer_strategy: {self.layer_strategy}")
+
     def _get_bert_cache_path(self, dataset) -> Path:
         cache_root = Path(os.path.expanduser(self.cache_dir))
         cache_root.mkdir(parents=True, exist_ok=True)
@@ -154,6 +187,7 @@ class BERT(NewsEmbeddingRecommender):
             "bert_model_name": self.bert_model_name,
             "max_length": int(self.max_length),
             "pooling": self.pooling,
+            "layer_strategy": self.layer_strategy,
         }
 
         key_str = json.dumps(key, sort_keys=True)
