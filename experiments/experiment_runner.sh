@@ -40,7 +40,8 @@ python run_stability_test.py \
   --window-stride "$WINDOW_STRIDE" \
   --runs "$RUNS" \
   --experiment-id "$EXPERIMENT_ID" \
-  --description "$DESCRIPTION"
+  --description "$DESCRIPTION" \
+  ${PARAMS:+--params "${PARAMS[@]}"}
 
 echo "================================================================================"
 echo "Experiment $EXPERIMENT_ID completed!"

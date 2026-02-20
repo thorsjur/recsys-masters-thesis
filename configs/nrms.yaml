@@ -21,9 +21,10 @@ learning_rate: 0.001   # paper says Adam; LR tuned on validation; start here
 train_batch_size: 64
 
 freeze_embeddings: true
-embedding_source: "glove"
-embedding_path: "data/glove.6B.300d.txt"
 
+# GLoVe config
+embedding_source: glove
+embedding_path: data/glove.6B.300d.txt
 
 
 # Custom eval args (needed for custom data loader)

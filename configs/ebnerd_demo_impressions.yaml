@@ -8,7 +8,7 @@ TIME_FIELD: timestamp
 # Data loading
 load_col:
   inter: [user_id, item_id, neg_item_id_list, history_item_id_list, timestamp, impression_id]
-  item: [item_id, title]
+  item: [item_id, title, category]
 
 # Ensure item ids and negatives are mapped to the same ID space
 alias_of_item_id: [neg_item_id_list, history_item_id_list]
