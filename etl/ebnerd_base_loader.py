@@ -39,7 +39,11 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         articles_path = os.path.join(self.config.raw_path, "articles.parquet")
         return pd.read_parquet(articles_path)
 
-    def _load_history_file(self, path: str) -> pd.DataFrame:
+    def _load_history_file(
+        self,
+        path: str,
+        sampled_users: Optional[Set] = None,
+    ) -> pd.DataFrame:
         """Load history.parquet from a single data-split directory.
 
         Each user's article list is sorted chronologically by
@@ -57,6 +61,12 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         except Exception:
             df = pd.read_parquet(history_path, columns=["user_id", "article_id_fixed"])
             has_times = False
+
+        # Filter to sampled users early, before the per-row sort
+        if sampled_users is not None:
+            before = len(df)
+            df = df[df["user_id"].isin(sampled_users)].reset_index(drop=True)
+            print(f"  [history] Filtered to sampled users: {before:,} → {len(df):,} rows")
 
         if has_times:
             print("Sorting user histories chronologically...")
@@ -79,10 +89,6 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         times = np.asarray(impression_times)
         order = np.argsort(times)
         return ids[order].tolist()
-
-    # ------------------------------------------------------------------
-    # History augmentation: merge base history + prior behaviour clicks
-    # ------------------------------------------------------------------
 
     def _augment_user_histories(self, df_behaviors: pd.DataFrame) -> pd.DataFrame:
         """Augment each impression's history with clicked items from earlier impressions.
@@ -128,7 +134,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         for i in range(n):
             uid = user_ids[i]
 
-            # ---- new user: reset accumulators ----
+            # new user: reset accumulators
             if uid != prev_user:
                 prev_user = uid
                 cum_clicks = []
@@ -138,13 +144,13 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
                 else:
                     base = []
 
-            # History for *this* impression = base + prior clicks
+            # History for this impression = base + prior clicks
             full = base + cum_clicks
             if max_hist is not None and len(full) > max_hist:
                 full = full[-max_hist:]
             augmented[i] = full
 
-            # Add this impression's clicks for subsequent impressions.
+            # Add this impression's clicks for following impressions.
             clicked = clicked_lists[i]
             if clicked is not None and hasattr(clicked, "__len__") and len(clicked) > 0:
                 cum_clicks.extend(clicked)
@@ -194,10 +200,8 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
             print(f"  [{folder_name}] Early user filter: {before:,} → {len(df_behaviors):,} behaviours")
 
         # Merge user click history from separate history file
-        history_df = self._load_history_file(path)
+        history_df = self._load_history_file(path, sampled_users)
         if not history_df.empty:
-            if sampled_users is not None:
-                history_df = history_df[history_df["user_id"].isin(sampled_users)].reset_index(drop=True)
             df_behaviors = df_behaviors.merge(history_df, on="user_id", how="left")
             del history_df
 
@@ -255,10 +259,6 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
 
         result = self._finalize_interactions_df(result)
         return result, total_rows
-
-    # ------------------------------------------------------------------
-    # Early user filtering (delegates to BaseEarlyPreprocessor pipeline)
-    # ------------------------------------------------------------------
 
     def _gather_all_user_ids(self, data_paths: List[str]) -> np.ndarray:
         """Read only the ``user_id`` column from every behaviours file

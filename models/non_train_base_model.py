@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
@@ -13,7 +13,7 @@ from recbole.utils import InputType
 
 class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
-    input_type = InputType.POINTWISE
+    input_type = InputType.LISTWISE
 
     def __init__(self, config, dataset):
         super().__init__(config, dataset)
@@ -27,7 +27,7 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         self.title_field = config["title_field"] if "title_field" in config else "title"
         self.abstract_field = config["abstract_field"] if "abstract_field" in config else "abstract"
         self.use_abstract = config["use_abstract"] if "use_abstract" in config else True
-        
+
         self.hist_field = config["hist_field"]
         self.use_hist = config.get("use_hist", False)
         self.has_hist_field = self.hist_field is not None and self.hist_field in dataset.inter_feat and self.use_hist
@@ -38,8 +38,8 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         # Dummy param so RecBole is happy
         self.dummy_param = nn.Parameter(torch.zeros(1))
 
-        self._build_item_embeddings(dataset) # (n_items, dim)
-        self._build_user_embeddings(dataset) # (n_users, dim)
+        self._build_item_embeddings(dataset)  # (n_items, dim)
+        self._build_user_embeddings(dataset)  # (n_users, dim)
 
         assert hasattr(self, "item_embeddings"), "_build_item_embeddings() must set self.item_embeddings"
         assert hasattr(self, "user_embeddings"), "_build_user_embeddings() must set self.user_embeddings"
@@ -76,16 +76,16 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         return {u: [i for i in item_ids[user_ids == u]] for u in user_ids}
 
     def _aggregate_history(self, hist_emb: torch.Tensor) -> torch.Tensor:
-        
+
         # Attention-based aggregation is handled separately during prediction,
         # and thus the user-embeddings are not really used in that case.
         # For simplicity, we just use mean aggregation here.
-        
+
         # Determine aggregation dimension based on tensor shape
         # (n_items, dim) -> aggregate along dim=0
         # (n_users, n_items, dim) -> aggregate along dim=1 (items dimension)
         agg_dim = -2 if hist_emb.dim() == 3 else 0
-        
+
         if self.aggregation == "mean" or self.aggregation == "attention":
             return hist_emb.mean(dim=agg_dim)
         if self.aggregation == "sum":
@@ -93,7 +93,7 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         if self.aggregation == "max":
             return hist_emb.max(dim=agg_dim)[0]
         raise ValueError(f"Unknown aggregation method: {self.aggregation}")
-    
+
     def forward(self, interaction):
         pass
 
@@ -102,29 +102,28 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
     @torch.no_grad()
     def predict(self, interaction):
-        user = interaction[self.USER_ID] # (B,)
-        item = interaction[self.ITEM_ID] # (B,)
+        user = interaction[self.USER_ID]  # (B,)
+        item = interaction[self.ITEM_ID]  # (B,)
 
         if self.aggregation == "attention":
             inters = zip(user.tolist(), item.tolist())
             scores = [self._attention_score_single(u_id, i_id) for u_id, i_id in inters]
 
             return torch.stack(scores)
-        
+
         if self.has_hist_field:
             # If history field is present in interaction features, we use it while evaluating
             # as it holds all history up to the current interaction anyways. And it matches
             # the setting of other models that use history from before the training data.
-            hist = interaction[self.hist_field] # (B, L)
-            rep = self.item_embeddings[hist] # (B, L, dim)
+            hist = interaction[self.hist_field]  # (B, L)
+            rep = self.item_embeddings[hist]  # (B, L, dim)
             u = self._aggregate_history(rep)
         else:
             u = self.user_embeddings[user]
-            
+
         v = self.item_embeddings[item]
 
         return torch.sum(u * v, dim=1)
-        
 
     @torch.no_grad()
     def full_sort_predict(self, interaction):
@@ -141,17 +140,110 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
     def _build_item_embeddings(self, dataset):
         raise NotImplementedError
 
+    def _get_text_fields(self) -> List[str]:
+        """Return the list of item text fields to use (title, and optionally abstract)."""
+        fields = [self.title_field]
+        if self.use_abstract and self.abstract_field:
+            fields.append(self.abstract_field)
+        return fields
+
+    def _build_embedding_matrices(
+        self,
+        dataset,
+        fields: List[str],
+        dim: int,
+    ) -> Dict[str, torch.Tensor]:
+        """Build a `(vocab_size, dim)` embedding matrix per text field via the
+        configured token_embedding_provider.
+        """
+        from models.embeddings.token_embedding_provider import build_token_embedding_provider
+
+        item_feat = dataset.get_item_feature()
+        matrices: Dict[str, torch.Tensor] = {}
+
+        for field in fields:
+            if field not in item_feat:
+                self.logger.warning(f"Field '{field}' not in item features, skipping.")
+                continue
+
+            provider = build_token_embedding_provider(
+                config=self.config,
+                dataset=dataset,
+                field=field,
+                dim=dim,
+            )
+            vocab_size = dataset.num(field)
+            matrix = provider.get_embedding_matrix(
+                vocab_size=vocab_size,
+                padding_idx=0,
+                dtype=torch.float32,
+            )
+            if matrix is None:
+                # Fallback for providers that return None (e.g. random)
+                matrix = torch.zeros(vocab_size, dim)
+            matrices[field] = matrix
+
+        return matrices
+
+    def _average_token_embeddings(
+        self,
+        dataset,
+        matrices: Dict[str, torch.Tensor],
+        dim: int,
+    ) -> torch.Tensor:
+        """Compute per-item mean embeddings by averaging token vectors across fields.
+
+        For each item, all non-padding token vectors from every field in
+        matrices are pooled together.  The result is a single
+        `(n_items, dim)` tensor.
+        """
+        item_feat = dataset.get_item_feature()
+        total_sum = torch.zeros(self.n_items, dim)
+        total_count = torch.zeros(self.n_items, 1)
+
+        for field, matrix in matrices.items():
+            token_ids = item_feat[field]
+            if not torch.is_tensor(token_ids):
+                token_ids = torch.tensor(token_ids, dtype=torch.long)
+            token_ids = token_ids.long()
+
+            embs = matrix[token_ids]  # (n_items, seq_len, dim)
+            mask = (token_ids != 0).unsqueeze(-1).float()  # (n_items, seq_len, 1)
+            total_sum += (embs * mask).sum(dim=1)  # (n_items, dim)
+            total_count += mask.sum(dim=1)  # (n_items, 1)
+
+        return total_sum / total_count.clamp(min=1)
+
+    def _build_token_provider_item_embeddings(
+        self,
+        dataset,
+        dim: int,
+        fields: Optional[List[str]] = None,
+    ) -> torch.Tensor:
+        if fields is None:
+            fields = self._get_text_fields()
+
+        matrices = self._build_embedding_matrices(dataset, fields, dim)
+
+        if not matrices:
+            self.logger.warning("No text fields found; item embeddings will be zeros.")
+            return torch.zeros(self.n_items, dim, device=self.device)
+
+        item_emb = self._average_token_embeddings(dataset, matrices, dim)
+        self.logger.info(f"Built item embeddings: {item_emb.shape}")
+        return item_emb.to(self.device)
+
     def _build_user_embeddings(self, dataset):
         dim = self.item_embeddings.shape[1]
-        
+
         hist_field = self.config["hist_field"]
         if hist_field is not None and hist_field in dataset.inter_feat:
             self.logger.info(f"Using user history from interaction field '{hist_field}' lazily")
             self.user_embeddings = torch.zeros((self.n_users, dim), dtype=torch.float32, device=self.device)
             return
-            
+
         self.user_hist_items = self._build_user_hist_items(dataset)
-        
+
         user_emb = torch.zeros((self.n_users, dim), dtype=torch.float32, device=self.device)
 
         for u in range(self.n_users):
@@ -209,3 +301,7 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
         score = (u_attn * item_emb).sum()
         return score
+    
+    def encode_items(self, item_ids: torch.Tensor) -> torch.Tensor:
+        """Encode a batch of items into their embedding space."""
+        return self.item_embeddings[item_ids]

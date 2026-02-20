@@ -29,3 +29,5 @@ temp/**
 plot/output/**
 
 cache/**
+
+output/plots/**

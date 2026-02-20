@@ -1,4 +1,4 @@
-# FastText Model Configuration
+# GLoVe based model configuration
 
 # Text fields
 title_field: title
@@ -12,12 +12,9 @@ aggregation: mean  # Options: mean, sum, max
 similarity: cosine  # Options: cosine, dot
 
 # Embedding configuration
-embedding_source: fasttext
-embedding_path: ~/fasttext/cc.da.300.bin
-fasttext_dim: 300
-fasttext_cache: ~/fasttext/cache/cc.da.300.bin.kv
-# embedding_path: ~/fasttext/cc.en.300.bin
-# fasttext_cache: ~/fasttext/cache/cc.en.300.bin.kv
+embedding_source: glove
+embedding_path: data/glove.6B.300d.txt
+embedding_dim: 300
 
 # Non-trainable model
 epochs: 0

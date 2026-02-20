@@ -109,8 +109,6 @@ class SBERTProvider(BaseSentenceEmbeddingProvider):
     _cache: Optional[_EmbeddingDiskCache] = field(default=None, init=False, repr=False)
     _is_setup: bool = field(default=False, init=False, repr=False)
 
-    # ── internal helpers ──────────────────────────────────────────────────
-
     @property
     def model_name(self) -> str:
         return str(self.config.get("sentence_embedding_model", "all-MiniLM-L6-v2"))

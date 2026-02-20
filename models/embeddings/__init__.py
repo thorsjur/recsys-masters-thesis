@@ -4,12 +4,9 @@ from .token_embedding_provider import (
     build_token_embedding_provider,
     register_token_provider,
     RandomTokenProvider,
-    # Backward-compatible aliases
-    BaseEmbeddingProvider,
-    build_embedding_provider,
-    register_provider,
 )
 from .glove_provider import GloveProvider
+from .fasttext_provider import FastTextProvider
 
 # Sentence-level providers
 from .sentence_embedding_provider import (
@@ -26,6 +23,7 @@ __all__ = [
     "register_token_provider",
     "RandomTokenProvider",
     "GloveProvider",
+    "FastTextProvider",
     # Sentence-level
     "BaseSentenceEmbeddingProvider",
     "build_sentence_embedding_provider",

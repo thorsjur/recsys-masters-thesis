@@ -57,10 +57,3 @@ class BaseTokenEmbeddingProvider:
 class RandomTokenProvider(BaseTokenEmbeddingProvider):
     def get_embedding_matrix(self, vocab_size: int, padding_idx: int, dtype=torch.float32):
         return None
-
-
-# ── Backward-compatible aliases ──────────────────────────────────────────────
-BaseEmbeddingProvider = BaseTokenEmbeddingProvider
-register_provider = register_token_provider
-build_embedding_provider = build_token_embedding_provider
-RandomProvider = RandomTokenProvider
