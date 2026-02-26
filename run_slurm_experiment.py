@@ -51,7 +51,7 @@ import logging
 import sys
 from pathlib import Path
 
-from slurm.slurm_constants import DEFAULT_CONDA_ENV
+from slurm.slurm_constants import DEFAULT_CONDA_ENV, DEFAULT_EMAIL
 from util.logging_config import setup_logging
 from slurm.state import StateManager, JobState
 from slurm.job_manager import SlurmJobManager
@@ -450,6 +450,7 @@ def _add_slurm_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--mail-user",
         type=str,
+        default=DEFAULT_EMAIL
         help="Email address for job notifications",
     )
     parser.add_argument(
