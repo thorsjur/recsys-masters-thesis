@@ -23,7 +23,7 @@ class EBNeRDAtomicConverter(BaseAtomicConverter):
             'item_id': 'item_id:token',
             'category_str': 'category:token',
             'title': 'title:token_seq',
-            'subtitle': 'subtitle:token_seq',
+            'subtitle': 'abstract:token_seq',
         }
 
     def load_inter_df(self):

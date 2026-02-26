@@ -1,49 +1,4 @@
 #!/usr/bin/env python3
-"""
-Slurm-based experiment runner for HPC clusters.
-
-This script provides a CLI for running stability experiments on Slurm-managed
-HPC clusters with support for:
-- Parallel execution across multiple nodes
-- Job state persistence and recovery
-- Selective restart of failed jobs
-- Pause/resume functionality
-
-Usage examples:
-
-    # Create and submit a new experiment
-    python run_slurm_experiment.py create \\
-        --experiment-id exp_bert_36h \\
-        --model BERT \\
-        --dataset mind_no_preprocessing \\
-        --window-size 48 \\
-        --window-ratio 36:12 \\
-        --total-units 144 \\
-        --granularity hour \\
-        --window-stride 12 \\
-        --seeds 42,123,456 \\
-        --partition gpu \\
-        --gpus 1 \\
-        --time-limit 04:00:00
-
-    # Submit all pending tasks
-    python run_slurm_experiment.py submit exp_bert_36h
-
-    # Check status
-    python run_slurm_experiment.py status exp_bert_36h
-
-    # Retry failed tasks
-    python run_slurm_experiment.py retry exp_bert_36h
-
-    # Pause experiment
-    python run_slurm_experiment.py pause exp_bert_36h
-
-    # Resume experiment
-    python run_slurm_experiment.py resume exp_bert_36h
-
-    # Cancel all jobs
-    python run_slurm_experiment.py cancel exp_bert_36h
-"""
 
 import argparse
 import json
@@ -53,7 +8,7 @@ from pathlib import Path
 
 from slurm.slurm_constants import DEFAULT_CONDA_ENV, DEFAULT_EMAIL
 from util.logging_config import setup_logging
-from slurm.state import StateManager, JobState
+from slurm.state import StateManager
 from slurm.job_manager import SlurmJobManager
 from slurm.orchestrator import ExperimentOrchestrator
 from stability.base import parse_seeds
@@ -334,8 +289,15 @@ def _add_experiment_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--seeds",
         type=str,
-        default="42,123,456",
-        help="Comma-separated list of seeds (default: '42,123,456')",
+        default=None,
+        help="Comma-separated list of seeds (default: auto-generated from --runs)",
+    )
+    parser.add_argument(
+        "--runs",
+        type=int,
+        default=3,
+        help="Number of runs per window, each with a different seed (default: 3). "
+             "Ignored if --seeds is provided.",
     )
     parser.add_argument(
         "--config",
@@ -464,7 +426,7 @@ def _add_slurm_args(parser: argparse.ArgumentParser):
 
 def cmd_create(args, orchestrator: ExperimentOrchestrator):
     """Handle create command."""
-    seeds = parse_seeds(args.seeds, runs=0, start_seed=42)
+    seeds = parse_seeds(args.seeds, runs=args.runs, start_seed=42)
 
     config, tasks = orchestrator.create_experiment(
         experiment_id=args.experiment_id,
