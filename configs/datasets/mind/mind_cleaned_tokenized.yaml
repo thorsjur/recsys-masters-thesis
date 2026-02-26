@@ -1,0 +1,3 @@
+# MIND (200k users from large) with text cleaning and NLTK tokenization - impression-based
+# Corresponds to dataset_registry.get_mind_cleaned_tokenized()
+_base: _base_impression

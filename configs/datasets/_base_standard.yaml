@@ -1,4 +1,5 @@
-# MIND Minor Preprocessing Dataset Configuration
+# Base configuration for standard (non-impression) datasets
+# Specific dataset configs should set "_base: _base_standard" to inherit these settings.
 
 # Field definitions
 USER_ID_FIELD: user_id
@@ -11,16 +12,12 @@ load_col:
   inter: [user_id, item_id, label, timestamp, impression_id]
   item: [item_id, category, sub_category, title, abstract]
 
-# These are temporary values, and will be overwritten programmatically.
-# They define the splits used for respectively train, validation and test.
-benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']
-
-# Filtering (Within each window, we only retain users and items with interactions)
+# Filtering (within each window, retain users and items with interactions)
 user_inter_num_interval: "[1,inf)"
 item_inter_num_interval: "[0,inf)"
 filter_inter_by_user_or_item: true
 
-# pre-generated splits from ETL
+# Pre-generated splits from ETL
 eval_args:
   split: {'LS': 'valid_and_test'}
   group_by: none

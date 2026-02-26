@@ -1,0 +1,5 @@
+# MIND Small Dataset Configuration
+_base: _base_standard
+
+benchmark_filename: ['train', 'valid', 'test']
+valid_metric: NDCG@10

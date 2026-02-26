@@ -1,0 +1,8 @@
+# SBERT-based model configuration
+
+# Non-trainable model
+epochs: 0
+
+
+sentence_embedding_model: sentence-transformers/distiluse-base-multilingual-cased-v2
+sentence_embedding_dim: 512 # This needs to match the output of the model defined above

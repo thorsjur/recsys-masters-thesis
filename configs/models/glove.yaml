@@ -18,4 +18,3 @@ embedding_dim: 300
 
 # Non-trainable model
 epochs: 0
-

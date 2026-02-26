@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 import time
 from logging import getLogger
@@ -54,6 +55,41 @@ def get_model_class(model_name):
     raise ImportError(f"Could not find model '{model_name}' in custom models or RecBole")
 
 
+def _find_config(search_dir, filename):
+    """Find a config file by name within a directory tree.
+
+    Searches recursively under `search_dir` for `filename`.
+    Returns the first match, or None if not found.
+    """
+    pattern = os.path.join(search_dir, "**", filename)
+    matches = glob.glob(pattern, recursive=True)
+    if matches:
+        return matches[0]
+    # Fallback: direct path
+    direct = os.path.join(search_dir, filename)
+    if os.path.exists(direct):
+        return direct
+    return None
+
+
+def _get_base_config(dataset_config_path):
+    """Read the ``_base`` key from a dataset config to resolve its parent.
+
+    If the dataset config contains ``_base: _base_impression`` (for example),
+    this returns ``configs/datasets/_base_impression.yaml``.
+    """
+    import yaml
+
+    with open(dataset_config_path) as f:
+        cfg = yaml.safe_load(f)
+    if cfg and "_base" in cfg:
+        base_name = cfg["_base"]
+        base_path = os.path.join("configs", "datasets", f"{base_name}.yaml")
+        if os.path.exists(base_path):
+            return base_path
+    return None
+
+
 def main():
     """Run RecBole experiments with specified model and dataset."""
     parser = argparse.ArgumentParser(description="Run RecBole model on dataset.")
@@ -101,18 +137,22 @@ def main():
 
     
     # Add env config if exists and not already in list
-    env_config = f"configs/env.yaml"
+    env_config = "configs/env.yaml"
     if os.path.exists(env_config) and env_config not in config_file_list:
         config_file_list.append(env_config)
 
-    # Add dataset config if exists and not already in list
-    dataset_config = f"configs/{args.dataset}.yaml"
-    if os.path.exists(dataset_config) and dataset_config not in config_file_list:
+    # Add dataset config (searches configs/datasets/ recursively)
+    dataset_config = _find_config("configs/datasets", f"{args.dataset}.yaml")
+    if dataset_config:
+        # Load base config first if the dataset config specifies one
+        base_config = _get_base_config(dataset_config)
+        if base_config and base_config not in config_file_list:
+            config_file_list.append(base_config)
         config_file_list.append(dataset_config)
 
-    # Add model config if exists and not already in list
-    model_config = f"configs/{model_name.lower()}.yaml"
-    if os.path.exists(model_config) and model_config not in config_file_list:
+    # Add model config (searches configs/models/ directory)
+    model_config = _find_config("configs/models", f"{model_name.lower()}.yaml")
+    if model_config and model_config not in config_file_list:
         config_file_list.append(model_config)
 
     if args.config:

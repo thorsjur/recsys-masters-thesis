@@ -1,0 +1,3 @@
+# MIND (200k users from large) with text cleaning on title and abstract - impression-based
+# Corresponds to dataset_registry.get_mind_cleaned()
+_base: _base_impression

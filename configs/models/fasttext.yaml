@@ -21,4 +21,3 @@ fasttext_cache: ~/fasttext/cache/cc.da.300.bin.kv
 
 # Non-trainable model
 epochs: 0
-

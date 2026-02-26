@@ -1,0 +1,5 @@
+# Random Model Configuration
+# Non-trainable baseline - ranks items randomly
+
+# Non-trainable
+epochs: 0
