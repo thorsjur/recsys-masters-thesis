@@ -35,8 +35,8 @@ def get_ebnerd_cleaned():
 
     pipeline = [
         UserSampler(n_users=200_000, seed=42),
-        SpacyTextCleaner(target_col="title", output_col="title", batch_size=2000),
-        SpacyTextCleaner(target_col="abstract", output_col="abstract", batch_size=2000),
+        SpacyTextCleaner(target_col="title", output_col="title", model="da_core_news_sm", batch_size=2000),
+        SpacyTextCleaner(target_col="abstract", output_col="abstract", model="da_core_news_sm", batch_size=2000),
     ]
 
     config = DatasetConfig(
@@ -85,8 +85,8 @@ def get_ebnerd_cleaned_tokenized():
 
     pipeline = [
         UserSampler(n_users=200_000, seed=42),
-        SpacyTextCleaner(target_col="title", output_col="title", batch_size=2000),
-        SpacyTextCleaner(target_col="abstract", output_col="abstract", batch_size=2000),
+        SpacyTextCleaner(target_col="title", output_col="title", model="da_core_news_sm", batch_size=2000),
+        SpacyTextCleaner(target_col="abstract", output_col="abstract", model="da_core_news_sm", batch_size=2000),
         NLTKTokenizer(to_lower=True, item_text_fields=["title", "abstract"], language="danish"),
     ]
 
