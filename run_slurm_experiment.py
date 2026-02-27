@@ -412,7 +412,7 @@ def _add_slurm_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--mail-user",
         type=str,
-        default=DEFAULT_EMAIL
+        default=DEFAULT_EMAIL,
         help="Email address for job notifications",
     )
     parser.add_argument(

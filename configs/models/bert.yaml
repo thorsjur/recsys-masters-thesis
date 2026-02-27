@@ -1,6 +1,6 @@
 # BERT-based model configuration
 
-bert_model_name: bert-base-uncased
+bert_model_name: bert-base-multilingual-cased
 bert_max_length: 128
 bert_pooling: cls # cls seems to outperform mean for pooling, on nDCG@10 ca. 27% improvement
 bert_batch_size: 32
