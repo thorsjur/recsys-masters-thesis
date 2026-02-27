@@ -55,6 +55,7 @@ def plot_temporal_stability(
     grid_alpha: float = 0.3,
     grid_style: str = "--",
     std_alpha: float = 0.15,
+    show_trend_line: bool = False,
     dpi: int = 300,
     output_format: str = "pdf",
     color_palette: str = "default",
@@ -100,6 +101,7 @@ def plot_temporal_stability(
         grid_alpha=grid_alpha,
         grid_style=grid_style,
         std_alpha=std_alpha,
+        show_trend_line=show_trend_line,
         colors=colors,
         x_label=x_label,
         y_label_suffix=y_label_suffix,
@@ -174,6 +176,7 @@ def _plot_metric_lines(
     vary_markers = style_opts["vary_markers"]
     vary_ls = style_opts["vary_line_styles"]
     std_alpha = style_opts["std_alpha"]
+    show_trend_line = style_opts["show_trend_line"]
     font_size = style_opts["font_size"]
 
     for exp_idx, data in enumerate(all_data):
@@ -203,6 +206,14 @@ def _plot_metric_lines(
         if show_std and any(s > 0 for s in stds):
             means_arr, stds_arr = np.array(means), np.array(stds)
             ax.fill_between(x_vals, means_arr - stds_arr, means_arr + stds_arr, alpha=std_alpha, color=color)
+
+        if show_trend_line and len(x_vals) >= 2:
+            coeffs = np.polyfit(x_vals, means, 1)
+            trend_y = np.polyval(coeffs, x_vals)
+            ax.plot(
+                x_vals, trend_y,
+                color=color, linewidth=1.0, linestyle="--", alpha=0.5,
+            )
 
         if show_individual_runs:
             run_marker = marker if vary_markers else "o"
@@ -290,6 +301,7 @@ def _run(args: argparse.Namespace) -> None:
         output_path=args.output,
         show_std=not args.no_std,
         show_individual_runs=args.show_runs,
+        show_trend_line=args.show_trend,
         figsize=tuple(args.figsize),
         line_width=args.line_width,
         marker_size=args.marker_size,
@@ -352,6 +364,7 @@ examples:
     band_group.add_argument("--no-std", action="store_true", help="Hide standard deviation bands")
     band_group.add_argument("--std-alpha", type=float, default=0.15, help="Alpha for std deviation bands (default: 0.15)")
     band_group.add_argument("--show-runs", action="store_true", help="Show individual run data points")
+    band_group.add_argument("--show-trend", action="store_true", help="Show linear trend line per experiment")
 
     # --- Text & font sizing ---
     text_group = parser.add_argument_group("text")

@@ -1,0 +1,24 @@
+bert_model_name: bert-base-multilingual-cased
+max_length: 128
+pooling: cls
+bert_batch_size: 64
+
+title_field: title
+abstract_field: abstract
+use_abstract: false
+
+optimizer: Adam
+learning_rate: 0.001
+train_batch_size: 32
+neg_sample_num: 4
+
+shuffle_within_impression: true
+
+enable_amp: true
+enable_scaler: true
+
+stopping_step: 2
+
+seq_len:
+  title: 30
+  history_item_id_list: 50
