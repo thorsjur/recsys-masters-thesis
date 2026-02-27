@@ -12,9 +12,9 @@ aggregation: mean  # Options: mean, sum, max
 similarity: cosine  # Options: cosine, dot
 
 # Embedding configuration
+fasttext_dim: 300
 embedding_source: fasttext
 embedding_path: ~/fasttext/cc.da.300.bin
-fasttext_dim: 300
 fasttext_cache: ~/fasttext/cache/cc.da.300.bin.kv
 # embedding_path: ~/fasttext/cc.en.300.bin
 # fasttext_cache: ~/fasttext/cache/cc.en.300.bin.kv

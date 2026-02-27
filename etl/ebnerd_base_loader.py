@@ -282,7 +282,10 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         print("Loading articles file...")
         self.df_item = self._load_articles_file()
         self.df_item = self.df_item.rename(columns={"article_id": "item_id"})
-        print(f"  Loaded {len(self.df_item):,} articles")
+        
+        # Rename "subtitle" to "abstract" for consistency with other datasets
+        self.df_item = self.df_item.rename(columns={"subtitle": "abstract"})
+        print(f"Loaded {len(self.df_item):,} articles")
 
         # Behaviors
         print("Loading behaviors files...")

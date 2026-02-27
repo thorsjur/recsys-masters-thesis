@@ -12,9 +12,11 @@ class NLTKTokenizer(BasePreprocessor):
         self,
         item_text_fields: list[str],
         to_lower: bool = True,
+        language: str = "english",
     ):
         self.item_text_fields = item_text_fields
         self.to_lower = to_lower
+        self.language = language
         self.logger = getLogger(self.__class__.__name__)
 
         tqdm.pandas()
@@ -36,7 +38,7 @@ class NLTKTokenizer(BasePreprocessor):
     def _tokenize_one(self, text: str) -> str:
         from nltk.tokenize import word_tokenize
 
-        tokens = word_tokenize(text.lower()) if self.to_lower else word_tokenize(text)
+        tokens = word_tokenize(text.lower(), language=self.language) if self.to_lower else word_tokenize(text, language=self.language)
         return " ".join(tokens)
 
     def process(self, df_inter: pd.DataFrame, df_item: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:

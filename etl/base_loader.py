@@ -77,10 +77,6 @@ class AbstractDataLoader(ABC):
         """Load raw data into df_inter and df_item."""
         pass
 
-    # ------------------------------------------------------------------
-    # Early user filtering (BaseEarlyPreprocessor support)
-    # ------------------------------------------------------------------
-
     def _resolve_early_user_filter(self, all_user_ids: np.ndarray) -> Optional[Set]:
         """Run any :class:`BaseEarlyPreprocessor` instances in the pipeline."""
         early = [p for p in self.config.preprocessors if isinstance(p, BaseEarlyPreprocessor)]
