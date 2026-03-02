@@ -98,10 +98,11 @@ class GloveProvider(BaseTokenEmbeddingProvider):
                 # Parse floats efficiently
                 vec_np = np.fromstring(rest, sep=" ", dtype=np.float32)
                 if vec_np.shape[0] != self.dim:
-                    # Malformed line or wrong dim; skip
+                    logger.warning(
+                        f"Line {lineno}: expected {self.dim} dimensions but got {vec_np.shape[0]} for word '{word}'. Skipping."
+                    )
                     continue
 
-                # Keep padding row fixed to zeros even if present in file
                 if idx == padding_idx:
                     remaining.discard(word)
                     continue
@@ -113,7 +114,7 @@ class GloveProvider(BaseTokenEmbeddingProvider):
                 if found >= target_found:
                     break
 
-        coverage = (found / max(1, target_found)) * 100.0
+        coverage = (found / target_found) * 100.0
         logger.info(
             f"Embedding coverage: found {found}/{target_found} tokens "
             f"({coverage:.2f}%). OOV vocab tokens: {len(remaining)}."
