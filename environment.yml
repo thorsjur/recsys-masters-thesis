@@ -23,7 +23,6 @@ dependencies:
   
   # Deep Learning
   - pytorch=2.6.0
-  - torchvision=0.20.1
   - torchaudio=2.6.0
 
   # Dev
