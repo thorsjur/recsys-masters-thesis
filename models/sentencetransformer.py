@@ -3,9 +3,9 @@ from models.embeddings.sbert_provider import SentenceTransformerProvider
 from models.non_train_base_model import NewsEmbeddingRecommender
 
 
-class SBERT(NewsEmbeddingRecommender):
+class SentenceTransformer(NewsEmbeddingRecommender):
     """
-    SBERT-based non-trainable news recommender.
+    Sentence Transformer-based non-trainable news recommender.
     """
     
     @property
