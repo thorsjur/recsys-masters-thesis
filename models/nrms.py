@@ -1,4 +1,7 @@
+import logging
+
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 from recbole.model.abstract_recommender import SequentialRecommender
@@ -6,6 +9,8 @@ from recbole.utils import InputType
 
 from models.embeddings.token_embedding_provider import build_token_embedding_provider
 from models.encoders import NRMSTitleEncoder, NRMSUserEncoder, BaseTextEncoder, BaseUserEncoder
+
+logger = logging.getLogger(__name__)
 
 
 class NRMS(SequentialRecommender):
@@ -31,6 +36,30 @@ class NRMS(SequentialRecommender):
         self.cand_field = config.get("cand_field", "cand_item_id")
         self.pos_index_field = config.get("pos_index_field", "pos_index")
 
+        # Sentence-level embedding mode
+        self.use_sentence_embeddings = (
+            config.get("sentence_embedding_source", None) is not None
+        )
+
+        if self.use_sentence_embeddings:
+            self._init_sentence_mode(config, dataset)
+        else:
+            self._init_token_mode(config, dataset)
+
+        news_dim = self.nb_head * self.size_per_head
+
+        # User encoder (same for both embedding modes)
+        self.user_encoder: BaseUserEncoder = NRMSUserEncoder(
+            news_dim=news_dim,
+            num_heads=self.nb_head,
+            head_dim=self.size_per_head,
+            att_dim=self.att_dim,
+        )
+
+        self.hidden_size = self.user_encoder.out_dim
+
+    def _init_token_mode(self, config, dataset):
+        """Default: token-level word embeddings + NRMS title encoder."""
         provider = build_token_embedding_provider(
             config=config,
             dataset=dataset,
@@ -44,7 +73,6 @@ class NRMS(SequentialRecommender):
             dtype=torch.float32,
         )
 
-        # Encoders
         self.news_encoder: BaseTextEncoder = NRMSTitleEncoder(
             vocab_size=self.vocab_size,
             word_embed_dim=self.word_embedding_dim,
@@ -56,15 +84,6 @@ class NRMS(SequentialRecommender):
             pretrained_embeddings=pretrained_emb_matrix,
             freeze_embeddings=bool(config.get("freeze_embeddings", False)),
         )
-
-        self.user_encoder: BaseUserEncoder = NRMSUserEncoder(
-            news_dim=self.news_encoder.out_dim,
-            num_heads=self.nb_head,
-            head_dim=self.size_per_head,
-            att_dim=self.att_dim,
-        )
-
-        self.hidden_size = self.user_encoder.out_dim
 
         item_feat = dataset.get_item_feature()
         if self.title_field not in item_feat:
@@ -80,17 +99,64 @@ class NRMS(SequentialRecommender):
 
         if title_tokens.dim() != 2:
             raise ValueError(
-                f"Expected '{self.title_field}' to be 2-D (n_items, seq_len), got {title_tokens.dim()}-D"
+                f"Expected '{self.title_field}' to be 2-D (n_items, seq_len), "
+                f"got {title_tokens.dim()}-D"
             )
         self.title_len = title_tokens.size(1)
         self.register_buffer("item_title_tokens", title_tokens)
-        
+
         pad_title = self.item_title_tokens[self.padding_idx]
         if (pad_title != self.padding_idx).any():
             print("Warning: item_title_tokens[padding_idx] is not all padding tokens.")
-            
 
-    # Helpers
+    def _init_sentence_mode(self, config, dataset):
+        """Sentence embedding mode: pre-compute dense item vectors via a
+        sentence-level encoder"""
+        from models.embeddings.sentence_embedding_provider import build_sentence_embedding_provider
+
+        sent_dim = int(config.get("sentence_embedding_dim", 384))
+        provider = build_sentence_embedding_provider(config, dim=sent_dim)
+
+        # Extract raw text for each item from RecBole's tokenised fields
+        abstract_field = config.get("abstract_field", "abstract")
+        use_abstract = bool(config.get("use_abstract", False))
+
+        n_items = dataset.item_num
+        item_texts = [
+            self._get_item_text(dataset, i, abstract_field if use_abstract else None)
+            for i in range(n_items)
+        ]
+
+        logger.info("Encoding %d items with sentence embeddings …", n_items)
+        sent_embeddings = provider.encode(item_texts, show_progress=True)
+        self.register_buffer("item_sentence_embeddings", sent_embeddings)
+
+        # Project sentence dim to news_dim if they differ
+        news_dim = self.nb_head * self.size_per_head
+        if sent_dim != news_dim:
+            self.sent_projection = nn.Linear(sent_dim, news_dim)
+        else:
+            self.sent_projection = nn.Identity()
+
+    def _get_item_text(
+        self, dataset, item_idx: int, abstract_field: str | None = None,
+    ) -> str:
+        """Reconstruct item text from RecBole's tokenised feature fields."""
+        item_feat = dataset.get_item_feature()
+        tokens: list[str] = []
+        fields = [self.title_field] + ([abstract_field] if abstract_field else [])
+        for field in fields:
+            if field not in item_feat:
+                continue
+            ids = item_feat[field][item_idx]
+            if torch.is_tensor(ids):
+                ids = ids.cpu().numpy()
+            tokens.extend(
+                dataset.id2token(field, [int(t)])[0] for t in ids if int(t) != 0
+            )
+        return " ".join(tokens)
+
+
     def _title_mask(self, token_ids: torch.Tensor) -> torch.Tensor:
         return token_ids != self.padding_idx
 
@@ -99,6 +165,13 @@ class NRMS(SequentialRecommender):
         item_ids: (B,) or (B, K) or (B, L)
         returns:  (B, D) or (B, K, D) or (B, L, D)
         """
+        if self.use_sentence_embeddings:
+            vecs = self.sent_projection(
+                self.item_sentence_embeddings[item_ids.reshape(-1)]
+            )
+            return vecs.view(*item_ids.shape, -1)
+
+        # Default: token-level encoding
         flat = item_ids.reshape(-1)
         uniq, inv = torch.unique(flat, return_inverse=True)
 
