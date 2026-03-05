@@ -14,7 +14,9 @@ from .sentence_embedding_provider import (
     build_sentence_embedding_provider,
     register_sentence_provider,
 )
-from .sbert_provider import SBERTProvider
+from .sbert_provider import SentenceTransformerProvider
+
+SBERTProvider = SentenceTransformerProvider
 
 __all__ = [
     # Token-level
@@ -28,5 +30,6 @@ __all__ = [
     "BaseSentenceEmbeddingProvider",
     "build_sentence_embedding_provider",
     "register_sentence_provider",
+    "SentenceTransformerProvider",
     "SBERTProvider",
 ]

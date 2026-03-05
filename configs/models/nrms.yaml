@@ -23,13 +23,13 @@ train_batch_size: 64
 freeze_embeddings: true
 
 # GLoVe config
-embedding_source: glove
-embedding_path: data/glove.6B.300d.txt
+# embedding_source: glove
+# embedding_path: data/glove.6B.300d.txt
 
 # Note that this overrides the word embedding config, as defined right above^
-# sentence_embedding_source: sbert
-# sentence_embedding_model: sentence-transformers/distiluse-base-multilingual-cased-v2
-# sentence_embedding_dim: 512 # This needs to match the output of the model defined above
+sentence_embedding_source: sbert
+sentence_embedding_model: sentence-transformers/distiluse-base-multilingual-cased-v2
+sentence_embedding_dim: 512 # This needs to match the output of the model defined above
 
 
 # Custom eval args (needed for custom data loader)

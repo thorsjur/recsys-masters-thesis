@@ -1,5 +1,5 @@
 import torch
-from models.embeddings.sbert_provider import SBERTProvider
+from models.embeddings.sbert_provider import SentenceTransformerProvider
 from models.non_train_base_model import NewsEmbeddingRecommender
 import numpy as np
 
@@ -15,7 +15,7 @@ class SBERT(NewsEmbeddingRecommender):
 
     def __init__(self, config, dataset):
         self.config = config
-        self.embedding_provider = SBERTProvider(config=config, dim=self.dim)
+        self.embedding_provider = SentenceTransformerProvider(config=config, dim=self.dim)
         
         super().__init__(config, dataset)
         

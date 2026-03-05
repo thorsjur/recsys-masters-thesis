@@ -22,12 +22,19 @@ def _load_model(
     model_name: str,
     device: Optional[str] = None,
     fp16: bool = False,
+    model_kwargs: Optional[Dict] = None,
+    tokenizer_kwargs: Optional[Dict] = None,
 ):
-    """Return a cached ``SentenceTransformer`` instance, loading only once."""
+    """Return a ``SentenceTransformer`` instance."""
     from sentence_transformers import SentenceTransformer
 
     logger.info("Loading sentence-transformer model '%s' …", model_name)
-    model = SentenceTransformer(model_name, device=device)
+    model = SentenceTransformer(
+        model_name,
+        device=device,
+        model_kwargs=model_kwargs or {},
+        tokenizer_kwargs=tokenizer_kwargs or {},
+    )
     if fp16 and model.device.type == "cuda":
         model.half()
     return model
@@ -98,11 +105,12 @@ class _EmbeddingDiskCache:
 
 
 
+@register_sentence_provider("sentence_transformer")
 @register_sentence_provider("sbert")
 @dataclass
-class SBERTProvider(BaseSentenceEmbeddingProvider):
-    """
-    Sentence-BERT provider backed by ``sentence-transformers``.
+class SentenceTransformerProvider(BaseSentenceEmbeddingProvider):
+    """Provider backed by the ``sentence-transformers`` library.
+    Works with any model available via ``SentenceTransformer(model_name)``.
     """
 
     _model: Optional["SentenceTransformer"] = field(default=None, init=False, repr=False)  # type: ignore[type-arg]
@@ -129,15 +137,30 @@ class SBERTProvider(BaseSentenceEmbeddingProvider):
     def _default_batch_size(self) -> int:
         return int(self.config.get("sentence_embedding_batch_size", 128))
 
+    @property
+    def _task(self) -> Optional[str]:
+        return self.config.get("sentence_embedding_task", None)
+
+    def _apply_instruction(self, sentences: Sequence[str]) -> List[str]:
+        if not self._task:
+            return list(sentences)
+        return [f"Instruct: {self._task}\nQuery: {s}" for s in sentences]
+
     def _setup(self) -> None:
         if self._is_setup:
             return
-        self._model = _load_model(self.model_name, self._device, self._fp16)
+        self._model = _load_model(
+            self.model_name,
+            self._device,
+            self._fp16,
+            model_kwargs=dict(self.config.get("sentence_embedding_model_kwargs", {}) or {}),
+            tokenizer_kwargs=dict(self.config.get("sentence_embedding_tokenizer_kwargs", {}) or {}),
+        )
 
         cache_dir = self.config.get("sentence_embedding_cache_dir", "./cache/sentence_embeddings")
         if cache_dir:
             self._cache = _EmbeddingDiskCache(cache_dir, self.model_name, self._normalize)
-            logger.info("SBERT disk cache at %s", cache_dir)
+            logger.info("Sentence embedding disk cache at %s", cache_dir)
 
         self._is_setup = True
 
@@ -155,6 +178,7 @@ class SBERTProvider(BaseSentenceEmbeddingProvider):
         forwarded to the model.
         """
         self._setup()
+        sentences = self._apply_instruction(sentences)
         n = len(sentences)
         if n == 0:
             return torch.empty(0, self.dim, dtype=dtype)
@@ -170,7 +194,7 @@ class SBERTProvider(BaseSentenceEmbeddingProvider):
             hits = {}
 
         logger.info(
-            "SBERT encode: %d total, %d cached, %d to compute",
+            "Sentence encode: %d total, %d cached, %d to compute",
             n,
             len(hits),
             len(miss_sent),
