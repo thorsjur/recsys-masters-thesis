@@ -11,6 +11,7 @@ Handles interaction with the Slurm workload manager:
 import logging
 import os
 import re
+import shlex
 import subprocess
 import time
 from datetime import datetime
@@ -331,7 +332,7 @@ class SlurmJobManager:
         if "benchmark_filename" in window_config:
             params.append(f"benchmark_filename={window_config['benchmark_filename']}")
 
-        cmd_parts.append(f"--params {' '.join(params)}")
+        cmd_parts.append("--params " + " ".join(shlex.quote(p) for p in params))
 
         return " \\\n    ".join(cmd_parts)
 
@@ -687,7 +688,7 @@ class SlurmJobManager:
         # Build optional arguments
         description_arg = f'--description "{config.description}"' if config.description else ""
         config_arg = f"--config {' '.join(config.config_files)}" if config.config_files else ""
-        extra_params = " ".join(config.params) if config.params else ""
+        extra_params = " ".join(shlex.quote(p) for p in config.params) if config.params else ""
 
         # Build task ID list as bash array (maps array index -> task_id)
         task_id_list_bash = " ".join(f'"{tid}"' for tid in task_id_list)
