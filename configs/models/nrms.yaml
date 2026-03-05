@@ -27,7 +27,7 @@ freeze_embeddings: true
 # embedding_path: data/glove.6B.300d.txt
 
 # Note that this overrides the word embedding config, as defined right above^
-sentence_embedding_source: sbert
+sentence_embedding_source: sentence_transformer
 sentence_embedding_model: sentence-transformers/distiluse-base-multilingual-cased-v2
 sentence_embedding_dim: 512 # This needs to match the output of the model defined above
 

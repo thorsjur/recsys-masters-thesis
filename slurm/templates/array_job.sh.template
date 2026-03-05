@@ -46,9 +46,9 @@ echo "Benchmark filename: $$BENCHMARK_FILENAME"
 echo ""
 
 # Build params - always include benchmark_filename if present
-EXTRA_PARAMS="${extra_params}"
+EXTRA_PARAMS=(${extra_params})
 if [ -n "$$BENCHMARK_FILENAME" ]; then
-    EXTRA_PARAMS="benchmark_filename=$$BENCHMARK_FILENAME $$EXTRA_PARAMS"
+    EXTRA_PARAMS=("benchmark_filename=$$BENCHMARK_FILENAME" "$${EXTRA_PARAMS[@]}")
 fi
 
 # Run the experiment
@@ -61,7 +61,7 @@ python run_recbole.py \
     ${description_arg} \
     ${config_arg} \
     --window-info "$$WINDOW_CONFIG" \
-    --params seed=$$SEED $$EXTRA_PARAMS
+    --params seed=$$SEED "$${EXTRA_PARAMS[@]}"
 
 EXIT_CODE=$$?
 
