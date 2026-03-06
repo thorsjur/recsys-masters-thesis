@@ -2,8 +2,6 @@ bert_model_name: bert-base-multilingual-cased
 max_length: 128
 pooling: cls
 bert_batch_size: 64
-# Smaller sub-batch for gradient-enabled forward passes (training candidates).
-# Lower values reduce peak GPU memory at the cost of more loop iterations.
 bert_grad_batch_size: 32
 
 title_field: title

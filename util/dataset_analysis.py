@@ -232,12 +232,10 @@ def load_temporal_interaction_data(
         suffix = f"{granularity}_{unit}"
         file_path = dataset_dir / f"{dataset_name}.{suffix}.inter"
         if file_path.exists():
-            df = pd.read_csv(
-                file_path, sep="\t", skiprows=1, names=["user_id", "item_id", "label", "timestamp", "impression_id"]
-            )
+            df = pd.read_csv(file_path, sep="\t")
+            df.columns = [c.split(":")[0] for c in df.columns]
             df["time_unit"] = unit
             dfs.append(df)
-
     if not dfs:
         raise ValueError(f"No data files found for {dataset_name} in range {time_units}")
 

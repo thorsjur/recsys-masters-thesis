@@ -66,6 +66,12 @@ def analyze_dataset_from_experiment(
 
     print(f"Loaded {len(df)} interactions from {df['user_id'].nunique()} users, {df['item_id'].nunique()} items")
 
+    if df.empty:
+        raise ValueError(
+            f"No interactions found for dataset '{dataset_name}' ({granularity} {min_unit}–{max_unit}). "
+            "Check that the atomic files exist and that the dataset name matches the directory."
+        )
+
     if start_timestamp is None:
         start_timestamp = float(df["timestamp"].min())
 
