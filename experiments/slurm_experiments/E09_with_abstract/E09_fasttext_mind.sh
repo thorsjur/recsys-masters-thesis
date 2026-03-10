@@ -7,9 +7,9 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E05_bert_frozen_mind"
-MODEL="BERT"
-DATASET="mind"
+export EXPERIMENT_ID="E03_fasttext_mind"
+MODEL="FastText"
+DATASET="mind_cleaned"
 
 cd "$(dirname "$0")/../.."
 
@@ -32,6 +32,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E05 BERT frozen transformer baseline on MIND" \
+    --description "E03 FastText subword embedding baseline on MIND with abstract" \
     --seeds "42,123" \
-    --params "use_abstract=false"
+    --params "embedding_path=~/fasttext/cc.en.300.bin" "fasttext_cache=~/fasttext/cache/cc.en.300.bin.kv" "use_abstract=true"

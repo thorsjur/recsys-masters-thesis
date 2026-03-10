@@ -32,6 +32,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E05 BERT frozen transformer baseline on MIND" \
+    --description "E05 BERT frozen transformer baseline on MIND with abstract" \
     --seeds "42,123" \
-    --params "use_abstract=false"
+    --params "use_abstract=true"

@@ -34,3 +34,4 @@ python run_slurm_experiment.py create \
     --memory "24G" \
     --description "E04 SBERT frozen semantic encoder baseline on MIND" \
     --seeds "42,123" \
+    --params "use_abstract=false"

@@ -34,3 +34,4 @@ python run_slurm_experiment.py create \
     --memory "24G" \
     --description "E05 BERT frozen transformer baseline on EB-NeRD" \
     --seeds "42,123" \
+    --params "use_abstract=false"

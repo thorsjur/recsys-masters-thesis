@@ -7,9 +7,9 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E05_bert_frozen_mind"
-MODEL="BERT"
-DATASET="mind"
+export EXPERIMENT_ID="E07_nrms_mind"
+MODEL="NRMS"
+DATASET="mind_tokenized"
 
 cd "$(dirname "$0")/../.."
 
@@ -17,21 +17,22 @@ echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
 echo "Dataset: $DATASET"
 
-PARTITION="CPUQ"
+PARTITION="GPUQ"
 
 python run_slurm_experiment.py create \
     --experiment-id "$EXPERIMENT_ID" \
     --model "$MODEL" \
     --dataset "$DATASET" \
     --window-size 48 \
-    --window-ratio "36:12" \
+    --window-ratio "30:6:12" \
     --total-units 168 \
     --granularity hour \
     --window-stride 12 \
     --account "$ACCOUNT" \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
-    --memory "24G" \
-    --description "E05 BERT frozen transformer baseline on MIND" \
-    --seeds "42,123" \
-    --params "use_abstract=false"
+    --memory "32G" \
+    --description "E07 NRMS neural baseline on MIND with abstract" \
+    --seeds "42,123,456,789,999" \
+    --gpu-count 1 \
+    --params "use_abstract=true"

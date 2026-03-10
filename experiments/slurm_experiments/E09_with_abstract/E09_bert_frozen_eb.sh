@@ -7,9 +7,9 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E05_bert_frozen_mind"
+export EXPERIMENT_ID="E05_bert_frozen_eb"
 MODEL="BERT"
-DATASET="mind"
+DATASET="ebnerd"
 
 cd "$(dirname "$0")/../.."
 
@@ -25,13 +25,13 @@ python run_slurm_experiment.py create \
     --dataset "$DATASET" \
     --window-size 48 \
     --window-ratio "36:12" \
-    --total-units 168 \
+    --total-units 336 \
     --granularity hour \
     --window-stride 12 \
     --account "$ACCOUNT" \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E05 BERT frozen transformer baseline on MIND" \
+    --description "E05 BERT frozen transformer baseline on EB-NeRD with abstract" \
     --seeds "42,123" \
-    --params "use_abstract=false"
+    --params "use_abstract=true"
