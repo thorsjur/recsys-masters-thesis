@@ -1,0 +1,6 @@
+# General Sentence Transformer-based model configuration
+
+# Non-trainable model
+epochs: 0
+
+
