@@ -1,8 +1,4 @@
 # TF-IDF-based model configuration
 
-use_abstract: false
-title_field: title
-abstract_field: abstract
-
 # Non-trainable model
 epochs: 0

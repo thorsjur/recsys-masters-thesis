@@ -1,10 +1,5 @@
 # FastText Model Configuration
 
-# Text fields
-title_field: title
-abstract_field: abstract
-use_abstract: false
-
 # User representation
 aggregation: mean  # Options: mean, sum, max
 

@@ -1,12 +1,4 @@
 bert_model_name: bert-base-multilingual-cased
-max_length: 128
-pooling: cls
-bert_batch_size: 64
-bert_grad_batch_size: 32
-
-title_field: title
-abstract_field: abstract
-use_abstract: false
 
 optimizer: Adam
 learning_rate: 0.001

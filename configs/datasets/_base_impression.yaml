@@ -6,6 +6,10 @@ USER_ID_FIELD: user_id
 ITEM_ID_FIELD: item_id
 TIME_FIELD: timestamp
 
+# Text fields
+title_field: title
+abstract_field: abstract
+
 # Data loading
 load_col:
   inter: [user_id, item_id, neg_item_id_list, history_item_id_list, timestamp, impression_id]
