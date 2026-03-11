@@ -145,6 +145,9 @@ class BERT(NewsEmbeddingRecommender):
             f"Expected {self.n_items} item embeddings, " f"got {item_embeddings.shape[0]}"
         )
 
+        # Zero out padding item (index 0)
+        item_embeddings[0] = 0.0
+
         self.item_embeddings = item_embeddings.to(self.device)
 
         self.logger.info(f"BERT item embeddings built: shape={self.item_embeddings.shape}")
@@ -188,6 +191,9 @@ class BERT(NewsEmbeddingRecommender):
             "max_length": int(self.max_length),
             "pooling": self.pooling,
             "layer_strategy": self.layer_strategy,
+            "use_abstract": self.use_abstract,
+            "title_field": self.title_field,
+            "abstract_field": self.abstract_field,
         }
 
         key_str = json.dumps(key, sort_keys=True)
