@@ -31,7 +31,7 @@ python run_slurm_experiment.py create \
     --account "$ACCOUNT" \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
-    --memory "24G" \
+    --memory "64G" \
     --description "E09 FastText subword embedding baseline on EB-NeRD with abstract" \
     --seeds "42,123" \
     --params "embedding_path=~/fasttext/cc.da.300.bin" "fasttext_cache=~/fasttext/cache/cc.da.300.bin.kv" "use_abstract=true"
