@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E08_ml_e5_large_mind"
-MODEL="SentenceTransformer"
-DATASET="mind"
+export EXPERIMENT_ID="E09_nrms_mind_w_abs"
+MODEL="NRMS_glove_abs"
+DATASET="mind_tokenized"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,7 +32,7 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "32G" \
-    --description "Using intfloat's multilingual E5 Large instruct to encode news content, and mean user encoding with abstract" \
-    --seeds "42,123,456" \
+    --description "E09 NRMS neural baseline on MIND with abstract" \
+    --seeds "42,123,456,789,999" \
     --gpu-count 1 \
-    --params "sentence_embedding_source=sentence_transformer" "sentence_embedding_model=intfloat/multilingual-e5-large-instruct" "sentence_embedding_dim=1024" "eval_batch_size=128" "sentence_embedding_task='Retrieve semantically similar text.'" "use_abstract=true"
+    --params "use_abstract=true"

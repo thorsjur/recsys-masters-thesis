@@ -1,9 +1,4 @@
 title_field: title
-title_len: 30
-
-seq_len:
-  title: 30
-  history_item_id_list: 50
 
 # hyper params (from paper)
 word_embedding_dim: 300

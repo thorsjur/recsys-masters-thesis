@@ -7,11 +7,13 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E03_fasttext_eb"
-MODEL="FastText"
+EXPERIMENT_ID="E09_tfidf_eb_w_abs"
+MODEL="TFIDF_abs"
 DATASET="ebnerd_cleaned"
 
-cd "$(dirname "$0")/../.."
+export LJOB="$EXPERIMENT_ID"
+
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,6 +34,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E03 FastText subword embedding baseline on EB-NeRD with abstract" \
+    --description "E09 TF-IDF lexical similarity baseline on EB-NeRD with abstract." \
     --seeds "42,123" \
-    --params "embedding_path=~/fasttext/cc.da.300.bin" "fasttext_cache=~/fasttext/cache/cc.da.300.bin.kv" "use_abstract=true"
+    --params "use_abstract=true"

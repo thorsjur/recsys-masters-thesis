@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E05_bert_frozen_mind"
-MODEL="BERT"
-DATASET="mind"
+EXPERIMENT_ID="E09_tfidf_mind_w_abs"
+MODEL="TFIDF_abs"
+DATASET="mind_cleaned"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,6 +32,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E05 BERT frozen transformer baseline on MIND with abstract" \
+    --description "E09 TF-IDF lexical similarity baseline on MIND with abstract." \
     --seeds "42,123" \
     --params "use_abstract=true"

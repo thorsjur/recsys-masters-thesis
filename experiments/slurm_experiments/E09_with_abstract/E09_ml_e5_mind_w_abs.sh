@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E07_bge_m3_nrms_mind"
-MODEL="NRMS_m3"
+export EXPERIMENT_ID="E09_ml_e5_large_mind_w_abs"
+MODEL="SentenceTransformer_ml_e5_L_abs"
 DATASET="mind"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,7 +32,7 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "32G" \
-    --description "E07 NRMS on MIND, using BAAi's multilingual bge m3 to encode news content with abstract" \
-    --seeds "42,123,456,789,999" \
+    --description "Using intfloat's multilingual E5 Large instruct to encode news content, and mean user encoding with abstract" \
+    --seeds "42,123,456" \
     --gpu-count 1 \
-    --params "sentence_embedding_model=BAAI/bge-m3" "sentence_embedding_dim=1024" "eval_batch_size=128" "use_abstract=true"
+    --params "sentence_embedding_source=sentence_transformer" "sentence_embedding_model=intfloat/multilingual-e5-large-instruct" "sentence_embedding_dim=1024" "eval_batch_size=128" "sentence_embedding_task='Retrieve semantically similar text.'" "use_abstract=true"

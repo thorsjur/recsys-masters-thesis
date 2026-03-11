@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E04_sbert_mind"
-MODEL="SBERT"
+export EXPERIMENT_ID="E09_sbert_mind_w_abs"
+MODEL="SBERT_abs"
 DATASET="mind"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,6 +32,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E04 SBERT frozen semantic encoder baseline on MIND with abstract" \
+    --description "E09 SBERT frozen semantic encoder baseline on MIND with abstract" \
     --seeds "42,123" \
     --params "use_abstract=true"

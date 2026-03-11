@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E04_sbert_eb"
-MODEL="SBERT"
-DATASET="ebnerd"
+export EXPERIMENT_ID="E09_glove_eb_w_abs"
+MODEL="GLoVe_abs"
+DATASET="ebnerd_cleaned_tokenized"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -31,7 +31,7 @@ python run_slurm_experiment.py create \
     --account "$ACCOUNT" \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
-    --memory "24G" \
-    --description "E04 SBERT frozen semantic encoder baseline on EB-NeRD with abstract" \
+    --memory "48G" \
+    --description "E09 GLoVe static embedding baseline on EB-NeRD with abstract" \
     --seeds "42,123" \
     --params "use_abstract=true"

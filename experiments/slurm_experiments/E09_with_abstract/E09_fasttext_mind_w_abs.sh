@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-EXPERIMENT_ID="E01_tfidf_mind"
-MODEL="TFIDF"
+export EXPERIMENT_ID="E09_fasttext_mind_w_abs"
+MODEL="FastText_abs"
 DATASET="mind_cleaned"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,6 +32,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E01 TF-IDF lexical similarity baseline on MIND with abstract." \
+    --description "E09 FastText subword embedding baseline on MIND with abstract" \
     --seeds "42,123" \
-    --params "use_abstract=true"
+    --params "embedding_path=~/fasttext/cc.en.300.bin" "fasttext_cache=~/fasttext/cache/cc.en.300.bin.kv" "use_abstract=true"

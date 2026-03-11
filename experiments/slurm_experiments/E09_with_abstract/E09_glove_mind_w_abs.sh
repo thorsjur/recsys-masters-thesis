@@ -7,32 +7,31 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E07_fasttext_nrms_mind"
-MODEL="NRMS"
-DATASET="mind_tokenized"
+export EXPERIMENT_ID="E09_glove_mind_w_abs"
+MODEL="GLoVe_abs"
+DATASET="mind_cleaned_tokenized"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
 echo "Dataset: $DATASET"
 
-PARTITION="GPUQ"
+PARTITION="CPUQ"
 
 python run_slurm_experiment.py create \
     --experiment-id "$EXPERIMENT_ID" \
     --model "$MODEL" \
     --dataset "$DATASET" \
     --window-size 48 \
-    --window-ratio "30:6:12" \
+    --window-ratio "36:12" \
     --total-units 168 \
     --granularity hour \
     --window-stride 12 \
     --account "$ACCOUNT" \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
-    --memory "32G" \
-    --description "E07 NRMS neural baseline on MIND, FastText initialized embeddings (instead of GloVe) with abstract" \
-    --seeds "42,123,456,789,999" \
-    --gpu-count 1 \
-    --params "embedding_source=fasttext" "embedding_path=~/fasttext/cc.en.300.bin" "fasttext_cache=~/fasttext/cache/cc.en.300.bin.kv" "use_abstract=true"
+    --memory "48G" \
+    --description "E09 GLoVe static embedding baseline on MIND with abstract" \
+    --seeds "42,123" \
+    --params "use_abstract=true"

@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E07_sbert_nrms_mind"
-MODEL="NRMS_sbert"
-DATASET="mind"
+export EXPERIMENT_ID="E09_fasttext_nrms_mind_w_abs"
+MODEL="NRMS_abs"
+DATASET="mind_tokenized"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -32,7 +32,7 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "32G" \
-    --description "E07 NRMS on MIND, using SBERT to encode news content with abstract" \
+    --description "E09 NRMS neural baseline on MIND, FastText initialized embeddings (instead of GloVe) with abstract" \
     --seeds "42,123,456,789,999" \
     --gpu-count 1 \
-    --params "sentence_embedding_source=sbert" "sentence_embedding_model=sentence-transformers/distiluse-base-multilingual-cased-v2" "sentence_embedding_dim=512" "use_abstract=true"
+    --params "embedding_source=fasttext" "embedding_path=~/fasttext/cc.en.300.bin" "fasttext_cache=~/fasttext/cache/cc.en.300.bin.kv" "use_abstract=true"

@@ -7,13 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-EXPERIMENT_ID="E01_tfidf_eb"
-MODEL="TFIDF"
-DATASET="ebnerd_cleaned"
+export EXPERIMENT_ID="E09_sbert_eb_w_abs"
+MODEL="SBERT_abs"
+DATASET="ebnerd"
 
-export LJOB="$EXPERIMENT_ID"
-
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -34,6 +32,6 @@ python run_slurm_experiment.py create \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
     --memory "24G" \
-    --description "E01 TF-IDF lexical similarity baseline on EB-NeRD with abstract." \
+    --description "E09 SBERT frozen semantic encoder baseline on EB-NeRD with abstract" \
     --seeds "42,123" \
     --params "use_abstract=true"

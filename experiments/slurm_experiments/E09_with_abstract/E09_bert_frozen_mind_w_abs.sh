@@ -7,11 +7,11 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E00_random_mind"
-MODEL="RANDOM"
+export EXPERIMENT_ID="E09_bert_frozen_mind_w_abs"
+MODEL="BERT_abs"
 DATASET="mind"
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 echo "Experiment: $EXPERIMENT_ID"
 echo "Model: $MODEL"
@@ -31,7 +31,7 @@ python run_slurm_experiment.py create \
     --account "$ACCOUNT" \
     --partition "$PARTITION" \
     --time-limit "24:00:00" \
-    --memory "16G" \
-    --description "E00 random baseline on MIND with abstract" \
+    --memory "24G" \
+    --description "E09 BERT frozen transformer baseline on MIND with abstract" \
     --seeds "42,123" \
     --params "use_abstract=true"
