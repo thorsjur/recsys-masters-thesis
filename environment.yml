@@ -1,6 +1,7 @@
 name: recsys_stability
 channels:
   - pytorch
+  - nvidia
   - conda-forge
   - defaults
 dependencies:
@@ -23,7 +24,7 @@ dependencies:
   
   # Deep Learning
   - pytorch=2.6.0
-  - torchaudio=2.6.0
+  - pytorch-cuda=12.1
 
   # Dev
   - ipykernel

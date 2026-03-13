@@ -7,6 +7,8 @@ bert_batch_size: 32
 bert_use_cache: True
 bert_cache_dir: ~/.cache/bert
 
+bert_layer_strategy: sum_last_four
+
 aggregation: mean
 
 # Non-trainable model

@@ -31,6 +31,7 @@ class NRMS(SequentialRecommender):
         self.att_dim = int(config.get("att_dim", 200))
         self.dropout = float(config.get("emb_dropout", 0.2))
         self.neg_k = int(config.get("neg_sample_num", 4))
+        self.similarity = config.get("similarity", "dot")
 
         # Fields produced by impression dataloader
         self.cand_field = config.get("cand_field", "cand_item_id")
@@ -229,7 +230,14 @@ class NRMS(SequentialRecommender):
     def predict(self, interaction) -> torch.Tensor:
         item_seq = interaction[self.ITEM_SEQ]
         item_id = interaction[self.ITEM_ID]
-        return self.forward(item_seq, item_id)
+        u = self.encode_user(item_seq)  # (B, D)
+        r = self.encode_items(item_id)  # (B, D)
+        
+        if self.similarity == "cosine":
+            u = F.normalize(u, dim=-1)
+            r = F.normalize(r, dim=-1)
+        
+        return torch.sum(u * r, dim=-1)
 
     def full_sort_predict(self, interaction) -> torch.Tensor:
         raise NotImplementedError("Not used, so we don't implement full-sort prediction.")

@@ -34,6 +34,10 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
         self.aggregation = config["aggregation"] if "aggregation" in config else "mean"
         self.similarity = config["similarity"] if "similarity" in config else "cosine"
+        if self.similarity not in ("cosine", "dot"):
+            raise ValueError(
+                f"Unknown similarity='{self.similarity}'. Must be one of ('cosine', 'dot')."
+            )
 
         # Dummy param so RecBole is happy
         self.dummy_param = nn.Parameter(torch.zeros(1))
@@ -54,10 +58,6 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         if self.user_embeddings.dtype != torch.float32:
             self.user_embeddings = self.user_embeddings.float()
 
-        if self.similarity == "cosine":
-            self.item_embeddings = F.normalize(self.item_embeddings, p=2, dim=1)
-            self.user_embeddings = F.normalize(self.user_embeddings, p=2, dim=1)
-
         self.logger.info(
             f"{self.__class__.__name__} initialized: "
             f"item_embeddings={self.item_embeddings.shape}, "
@@ -77,16 +77,12 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
     def _aggregate_history(self, hist_emb: torch.Tensor) -> torch.Tensor:
 
-        # Attention-based aggregation is handled separately during prediction,
-        # and thus the user-embeddings are not really used in that case.
-        # For simplicity, we just use mean aggregation here.
-
         # Determine aggregation dimension based on tensor shape
         # (n_items, dim) -> aggregate along dim=0
         # (n_users, n_items, dim) -> aggregate along dim=1 (items dimension)
         agg_dim = -2 if hist_emb.dim() == 3 else 0
 
-        if self.aggregation == "mean" or self.aggregation == "attention":
+        if self.aggregation == "mean":
             return hist_emb.mean(dim=agg_dim)
         if self.aggregation == "sum":
             return hist_emb.sum(dim=agg_dim)
@@ -105,12 +101,6 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         user = interaction[self.USER_ID]  # (B,)
         item = interaction[self.ITEM_ID]  # (B,)
 
-        if self.aggregation == "attention":
-            inters = zip(user.tolist(), item.tolist())
-            scores = [self._attention_score_single(u_id, i_id) for u_id, i_id in inters]
-
-            return torch.stack(scores)
-
         if self.has_hist_field:
             # If history field is present in interaction features, we use it while evaluating
             # as it holds all history up to the current interaction anyways. And it matches
@@ -123,14 +113,14 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
         v = self.item_embeddings[item]
 
+        if self.similarity == "cosine":
+            return F.cosine_similarity(u, v, dim=1)
+
         return torch.sum(u * v, dim=1)
 
     @torch.no_grad()
     def full_sort_predict(self, interaction):
         raise NotImplementedError("Full sort prediction is not supported for NewsEmbeddingRecommender.")
-        # if self.aggregation == "attention":
-        #     raise NotImplementedError("Full sort prediction is not supported with attention-based aggregation.")
-
         # user = interaction[self.USER_ID]
 
         # u = self.user_embeddings[user]
@@ -285,23 +275,6 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         # RecBole token sequences are padded with 0
         return [dataset.id2token(field, [int(t)])[0] for t in ids if int(t) != 0]
 
-    def _attention_score_single(self, user_id: int, item_id: int) -> torch.Tensor:
-        hist = self.user_hist_items.get(user_id, [])
-        if not hist:
-            return torch.tensor(0.0, device=self.device)
-
-        hist_idx = torch.as_tensor(hist, dtype=torch.long, device=self.device)
-
-        hist_emb = self.item_embeddings[hist_idx]
-        item_emb = self.item_embeddings[item_id]
-
-        similarity = (hist_emb * item_emb.unsqueeze(0)).sum(dim=-1)
-        weights = torch.softmax(similarity, dim=0)
-        u_attn = (weights.unsqueeze(-1) * hist_emb).sum(dim=0)
-
-        score = (u_attn * item_emb).sum()
-        return score
-    
     def encode_items(self, item_ids: torch.Tensor) -> torch.Tensor:
         """Encode a batch of items into their embedding space."""
         return self.item_embeddings[item_ids]

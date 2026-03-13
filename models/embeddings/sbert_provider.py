@@ -131,7 +131,7 @@ class SentenceTransformerProvider(BaseSentenceEmbeddingProvider):
 
     @property
     def _normalize(self) -> bool:
-        return bool(self.config.get("sentence_embedding_normalize", True))
+        return bool(self.config.get("sentence_embedding_normalize", False))
 
     @property
     def _default_batch_size(self) -> int:
