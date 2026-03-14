@@ -32,12 +32,14 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         self.use_hist = config.get("use_hist", False)
         self.has_hist_field = self.hist_field is not None and self.hist_field in dataset.inter_feat and self.use_hist
 
+        # Fields produced by impression dataloader for mlp sim training
+        self.cand_field = config.get("cand_field", "cand_item_id")
+        self.pos_index_field = config.get("pos_index_field", "pos_index")
+
         self.aggregation = config["aggregation"] if "aggregation" in config else "mean"
         self.similarity = config["similarity"] if "similarity" in config else "cosine"
-        if self.similarity not in ("cosine", "dot"):
-            raise ValueError(
-                f"Unknown similarity='{self.similarity}'. Must be one of ('cosine', 'dot')."
-            )
+        if self.similarity not in ("cosine", "dot", "mlp"):
+            raise ValueError(f"Unknown similarity='{self.similarity}'. Must be one of ('cosine', 'dot', 'mlp').")
 
         # Dummy param so RecBole is happy
         self.dummy_param = nn.Parameter(torch.zeros(1))
@@ -58,6 +60,16 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
         if self.user_embeddings.dtype != torch.float32:
             self.user_embeddings = self.user_embeddings.float()
 
+        # This MLP is based on, and uses heuristics from "Natural Language Inference by Tree-Based Convolution
+        # and Heuristic Matching" (https://aclanthology.org/P16-2022.pdf)
+        embed_dim = self.item_embeddings.shape[1]
+        self.scoring_mlp = nn.Sequential(
+            nn.Linear(embed_dim * 4, 128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(128, 1),
+        ).to(self.device)
+
         self.logger.info(
             f"{self.__class__.__name__} initialized: "
             f"item_embeddings={self.item_embeddings.shape}, "
@@ -75,6 +87,18 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
 
         return {u: [i for i in item_ids[user_ids == u]] for u in user_ids}
 
+    def _get_user_embedding(self, interaction):
+        if self.has_hist_field:
+            # If history field is present in interaction features, we use it while evaluating
+            # as it holds all history up to the current interaction anyways. And it matches
+            # the setting of other models that use history from before the training data.
+            hist = interaction[self.hist_field]
+            rep = self.item_embeddings[hist]
+            u = self._aggregate_history(rep)
+        else:
+            u = self.user_embeddings[interaction[self.USER_ID]]
+        return u
+
     def _aggregate_history(self, hist_emb: torch.Tensor) -> torch.Tensor:
 
         # Determine aggregation dimension based on tensor shape
@@ -90,28 +114,49 @@ class NewsEmbeddingRecommender(GeneralRecommender, ABC):
             return hist_emb.max(dim=agg_dim)[0]
         raise ValueError(f"Unknown aggregation method: {self.aggregation}")
 
-    def forward(self, interaction):
-        pass
+    def _build_interaction_features(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        return torch.cat([u, v, u * v, torch.abs(u - v)], dim=-1)
 
-    def calculate_loss(self, interaction):
-        return self.dummy_param.new_zeros(())
+    def _score_mlp(self, u: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        x = self._build_interaction_features(u, v)
+        return self.scoring_mlp(x).squeeze(-1)
+
+    def forward(self, interaction):
+        if self.similarity != "mlp":
+            raise NotImplementedError("Forward method is only implemented for MLP similarity.")
+
+        u = self._get_user_embedding(interaction)
+        v = self.item_embeddings[interaction[self.ITEM_ID]]
+
+        return self._score_mlp(u, v)
+
+    def calculate_loss(self, interaction) -> torch.Tensor:
+        if self.similarity != "mlp":
+            return self.dummy_param.new_zeros(())
+
+        cand_item_ids = interaction[self.cand_field]
+        pos_index = interaction[self.pos_index_field].long()
+
+        u = self._get_user_embedding(interaction)
+        cand_vecs = self.item_embeddings[cand_item_ids]
+
+        u = u.detach()
+        cand_vecs = cand_vecs.detach()
+
+        u = u.unsqueeze(1).expand(-1, cand_vecs.size(1), -1)
+
+        logits = self._score_mlp(u, cand_vecs)
+        return F.cross_entropy(logits, pos_index)
 
     @torch.no_grad()
     def predict(self, interaction):
-        user = interaction[self.USER_ID]  # (B,)
         item = interaction[self.ITEM_ID]  # (B,)
 
-        if self.has_hist_field:
-            # If history field is present in interaction features, we use it while evaluating
-            # as it holds all history up to the current interaction anyways. And it matches
-            # the setting of other models that use history from before the training data.
-            hist = interaction[self.hist_field]  # (B, L)
-            rep = self.item_embeddings[hist]  # (B, L, dim)
-            u = self._aggregate_history(rep)
-        else:
-            u = self.user_embeddings[user]
-
+        u = self._get_user_embedding(interaction)
         v = self.item_embeddings[item]
+
+        if self.similarity == "mlp":
+            return self._score_mlp(u, v)
 
         if self.similarity == "cosine":
             return F.cosine_similarity(u, v, dim=1)
