@@ -7,7 +7,7 @@ if [ -z "$ACCOUNT" ]; then
     exit 1
 fi
 
-export EXPERIMENT_ID="E05_bert_frozen_eb_fixed"
+export EXPERIMENT_ID="E05_bert_frozen_eb"
 MODEL="BERT"
 DATASET="ebnerd"
 
