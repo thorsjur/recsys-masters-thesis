@@ -49,3 +49,5 @@ dependencies:
     - sentence-transformers
 
     - peft
+    - psutil
+    - nvidia-ml-py

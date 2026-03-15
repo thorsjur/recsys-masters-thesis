@@ -58,27 +58,57 @@ class ResultsLogger:
             "experiment_id": info.get("experiment_id"),
             "description": info.get("description"),
             "timestamp": datetime.now().isoformat(),
-            "run_info": {"model": model, "dataset": dataset, "seed": config.get("seed")},
-            "dataset_info": _to_json_safe(info.get("dataset_stats", {})),
+            "run_info": {
+                "model": model,
+                "dataset": dataset,
+                "seed": config.get("seed"),
+            },
             "window_info": _to_json_safe(info.get("window_info")) if info.get("window_info") else None,
         }
-
-        if valid_results:
-            entry["validation_results"] = _to_json_safe(valid_results)
-        if test_results:
-            entry["test_results"] = _to_json_safe(test_results)
-        if training_time is not None:
-            entry["training_time_seconds"] = float(training_time)
 
         entry["config_summary"] = {
             k: config.get(k)
             for k in ["epochs", "learning_rate", "train_batch_size", "eval_batch_size", "metrics", "topk"]
         }
+        
+        if test_results:
+            entry["test_results"] = _to_json_safe(test_results)
+        if valid_results:
+            entry["validation_results"] = _to_json_safe(valid_results)
+        if training_time is not None:
+            entry["training_time_seconds"] = float(training_time)
+            
+        tmp = {
+            "dataset_stats": _to_json_safe(info.get("dataset_stats", {})),
+            "runtime": _to_json_safe(info.get("runtime", {})),
+            "environment": _to_json_safe(info.get("environment", {})),
+            "system_info": {
+                "process_stats_pre_train": _to_json_safe(info.get("process_stats_pre_train", {})),
+                "process_stats_post_run": _to_json_safe(info.get("process_stats_post_run", {})),
+                "gpu_stats": _to_json_safe(info.get("gpu_stats", {})),
+            },
+        }
+        
+        entry.update({k: v for k, v in tmp.items() if v})
+
         entry["full_config"] = self._serialize_config(config)
 
         # Include additional info not already extracted
         extra = {
-            k: v for k, v in info.items() if k not in ["experiment_id", "description", "window_info", "dataset_stats"]
+            k: v
+            for k, v in info.items()
+            if k
+            not in [
+                "experiment_id",
+                "description",
+                "window_info",
+                "dataset_stats",
+                "runtime",
+                "environment",
+                "process_stats_pre_train",
+                "process_stats_post_run",
+                "gpu_stats",
+            ]
         }
         if extra:
             entry["additional_info"] = extra
