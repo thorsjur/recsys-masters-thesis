@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
+
 def plot_user_item_distributions(
     df: pd.DataFrame,
     axes: tuple[Axes, Axes],

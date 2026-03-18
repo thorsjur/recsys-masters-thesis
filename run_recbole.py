@@ -10,6 +10,7 @@ from logging import getLogger
 from importlib import import_module
 import uuid
 
+from data_analysis.dataset_analysis import collect_recbole_dataset_stats, format_dataset_stats_summary
 import psutil
 import torch
 
@@ -21,7 +22,6 @@ from util.recbole.data_preparation import data_preparation, create_dataset
 from util.recbole.config import CConfig
 from util.logging_config import setup_logging
 from util.results_logger import ResultsLogger
-from util.dataset_analysis import collect_recbole_dataset_stats, format_dataset_stats_summary
 
 
 def get_model_class(model_name):

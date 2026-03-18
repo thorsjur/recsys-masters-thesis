@@ -18,7 +18,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 
-from plot.common import get_output_dir, print_header, run_cli, COLORS
+from data_analysis.plot.common import COLORS, get_output_dir, print_header, run_cli
 from util.experiment_data import load_experiment_results
 
 

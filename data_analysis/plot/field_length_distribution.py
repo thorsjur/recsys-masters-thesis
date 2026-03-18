@@ -42,7 +42,8 @@ def save_field_length_distribution(
     ax.grid(axis="y", alpha=0.25)
     ax.legend()
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
-    fig.savefig(output_path, format="pdf")
+    fig.savefig(output_path, format="pdf", dpi=300, bbox_inches="tight")
     plt.close(fig)
     return quantile_value

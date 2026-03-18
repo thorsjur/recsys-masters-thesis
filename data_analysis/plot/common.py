@@ -2,15 +2,15 @@
 
 import argparse
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any
 
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from util.constants import SEPARATOR
 from util.experiment_data import load_experiment_results
 
-DEFAULT_OUTPUT_DIR = Path("plot/output")
+DEFAULT_OUTPUT_DIR = Path("data_analysis/output")
 
 COLORS = [
     "#2E86AB",
@@ -24,7 +24,7 @@ COLORS = [
 ]
 
 
-def get_output_dir(output_dir: Optional[str] = None) -> Path:
+def get_output_dir(output_dir: str | None = None) -> Path:
     """Get output directory, creating if needed."""
     path = Path(output_dir) if output_dir else DEFAULT_OUTPUT_DIR
     path.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ def load_experiment(
     experiment_id: str,
     jsonl_path: str = "output/results/experiments.jsonl",
     require_temporal: bool = True,
-) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Load and validate experiment results.
 
     Returns:
@@ -70,9 +70,9 @@ def load_experiment(
     return results, first
 
 
-def collect_windows(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def collect_windows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Collect and deduplicate windows from results, sorted by window number."""
-    by_number: Dict[int, Dict[str, Any]] = {}
+    by_number: dict[int, dict[str, Any]] = {}
     for result in results:
         w_info = result.get("window_info", {})
         if w_info:
@@ -82,7 +82,7 @@ def collect_windows(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [by_number[k] for k in sorted(by_number.keys())]
 
 
-def get_time_range(windows: List[Dict[str, Any]]) -> tuple[int, int]:
+def get_time_range(windows: list[dict[str, Any]]) -> tuple[int, int]:
     """Get min/max time units from windows."""
     min_unit = min(w.get("start_unit", 0) for w in windows)
     max_unit = max(w.get("end_unit", 0) for w in windows)
@@ -94,8 +94,8 @@ def run_cli(main_func, parser: argparse.ArgumentParser) -> None:
     args = parser.parse_args()
     try:
         main_func(args)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
+    except Exception as exc:
+        print(f"Unexpected error: {exc}")
         import traceback
 
         traceback.print_exc()

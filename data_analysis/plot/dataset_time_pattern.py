@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from matplotlib.axes import Axes
 
+
 def plot_time_pattern(
     df: pd.DataFrame,
     ax: Axes,

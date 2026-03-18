@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from data_analysis.atomic_file import find_item_file, load_item_dataframe
+from data_analysis.dataset_analysis import compute_temporal_statistics, load_temporal_interaction_data
 from data_analysis.dataset_summary_table import save_dataset_summary_table, summarize_interaction_dataframe
-from plot.common import (
+from data_analysis.plot.common import (
     collect_windows,
     get_output_dir,
     get_time_range,
@@ -20,12 +21,9 @@ from plot.common import (
     run_cli,
     save_figure,
 )
-from plot.dataset_concentration_curves import plot_concentration_curves
-from plot.dataset_interactions_timeline import plot_interactions_timeline
-from plot.dataset_temporal_heatmap import plot_temporal_heatmap
-from plot.dataset_time_pattern import plot_time_pattern
-from plot.dataset_user_item_distributions import plot_user_item_distributions
-from util.dataset_analysis import compute_temporal_statistics, load_temporal_interaction_data
+from data_analysis.plot.dataset_interactions_timeline import plot_interactions_timeline
+from data_analysis.plot.dataset_time_pattern import plot_time_pattern
+from data_analysis.plot.dataset_user_item_distributions import plot_user_item_distributions
 
 
 def analyze_dataset_from_experiment(
@@ -68,33 +66,33 @@ def analyze_dataset_from_experiment(
 
     stats = compute_temporal_statistics(df, granularity, start_timestamp)
     out_dir = get_output_dir(output_dir)
-    output_paths = []
-    table_paths = []
+    output_paths: list[str] = []
+    table_paths: list[str] = []
 
     fig1, ax1 = plt.subplots(figsize=figsize)
     plot_interactions_timeline(df, ax1, dataset_name, bucket_hours, primary_color)
     path1 = out_dir / f"{experiment_id}_interactions_timeline.pdf"
     save_figure(fig1, path1)
-    output_paths.append(path1)
+    output_paths.append(str(path1))
 
     fig2, ax2 = plt.subplots(figsize=figsize)
     plot_time_pattern(df, ax2, dataset_name, granularity, bucket_hours, primary_color)
     path2 = out_dir / f"{experiment_id}_time_pattern.pdf"
     save_figure(fig2, path2)
-    output_paths.append(path2)
+    output_paths.append(str(path2))
 
     fig3, axes = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
     plot_user_item_distributions(df, (axes[0], axes[1]), dataset_name, log_scale, primary_color)
     path3 = out_dir / f"{experiment_id}_distributions.pdf"
     save_figure(fig3, path3)
-    output_paths.append(path3)
+    output_paths.append(str(path3))
 
     item_df = _maybe_load_item_dataframe(dataset_name, dataset_path)
     summary_table = save_dataset_summary_table(
         _build_summary_table(dataset_name, df, item_df),
         out_dir / f"{experiment_id}_dataset_summary.csv",
     )
-    table_paths.append(summary_table)
+    table_paths.append(str(summary_table))
 
     _print_summary(experiment_id, dataset_name, granularity, min_unit, max_unit, stats, len(windows))
     print(f"\nGenerated {len(output_paths)} plots and {len(table_paths)} table in: {out_dir}\n")
@@ -102,8 +100,8 @@ def analyze_dataset_from_experiment(
     return {
         "statistics": stats,
         "dataframe": df,
-        "output_paths": [str(path) for path in output_paths],
-        "table_paths": [str(path) for path in table_paths],
+        "output_paths": output_paths,
+        "table_paths": table_paths,
     }
 
 

@@ -16,11 +16,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from plot.common import get_output_dir, print_header, run_cli
+from data_analysis.dataset_analysis import load_temporal_interaction_data
+from data_analysis.plot.common import collect_windows, get_output_dir, print_header, run_cli, save_figure
+from data_analysis.plot.window_validation_plots import plot_cold_start_ratios, plot_window_data_distribution
+from data_analysis.window_validation import compute_all_window_statistics, export_statistics_table, generate_validation_report
 from util.experiment_data import load_experiment_results
-from util.dataset_analysis import load_temporal_interaction_data
-from util.window_validation import compute_all_window_statistics, generate_validation_report, export_statistics_table
-from util.window_plots import plot_window_data_distribution, plot_cold_start_ratios
 
 
 def validate_sliding_windows(
@@ -37,7 +37,7 @@ def validate_sliding_windows(
         experiment_id: Experiment ID to validate
         jsonl_path: Path to experiments.jsonl file
         dataset_path: Path to dataset directory
-        output_dir: Output directory (default: plot/output/)
+        output_dir: Output directory (default: data_analysis/output/)
         generate_plots: Whether to generate plots
         export_tables: Whether to export statistics tables
 
@@ -57,7 +57,7 @@ def validate_sliding_windows(
     granularity = window_info.get("granularity", "hour")
 
     # Collect unique windows
-    all_windows = _collect_unique_windows(results)
+    all_windows = collect_windows(results)
     print(f"Validating {len(all_windows)} windows from experiment {experiment_id}...")
 
     # Load interaction data
@@ -77,7 +77,7 @@ def validate_sliding_windows(
     print("Computing window statistics...")
     stats_df = compute_all_window_statistics(df, all_windows, granularity)
 
-    out_dir = Path(output_dir) if output_dir else get_output_dir()
+    out_dir = get_output_dir(output_dir)
     output_paths = _generate_outputs(
         stats_df, experiment_id, dataset_name, granularity, out_dir, generate_plots, export_tables
     )
@@ -90,18 +90,6 @@ def validate_sliding_windows(
         "dataset_name": dataset_name,
         "num_windows": len(all_windows),
     }
-
-
-def _collect_unique_windows(results: list) -> list:
-    """Deduplicate windows by window_number (multiple runs per window)."""
-    windows_by_num = {}
-    for result in results:
-        w_info = result.get("window_info", {})
-        if w_info:
-            win_num = w_info.get("window_number")
-            if win_num is not None and win_num not in windows_by_num:
-                windows_by_num[win_num] = w_info
-    return [windows_by_num[k] for k in sorted(windows_by_num.keys())]
 
 
 def _generate_outputs(
@@ -145,9 +133,7 @@ def _generate_outputs(
             fig, ax = plt.subplots(figsize=(10, 5))
             plot_fn(stats_df, ax=ax)
             path = out_dir / f"{experiment_id}_{name}.pdf"
-            fig.savefig(path, format="pdf", dpi=300, bbox_inches="tight")
-            plt.close(fig)
-            print(f"Saved: {path}")
+            save_figure(fig, path)
             output_paths[f"{name}_plot"] = str(path)
 
     return output_paths

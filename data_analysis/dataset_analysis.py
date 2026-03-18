@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, Optional
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from recbole.data.dataset import Dataset
 
+from data_analysis.atomic_file import find_dataset_dir, load_interaction_dataframe
 from util.constants import SEPARATOR
 from util.statistics import basic_stats
 
 
-def collect_recbole_dataset_stats(dataset: Dataset, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def collect_recbole_dataset_stats(dataset: Dataset, config: dict[str, Any] | None = None) -> dict[str, Any]:
     inter_feat = dataset.inter_feat
     if inter_feat is None:
         raise ValueError("Dataset has no interaction features")
@@ -34,7 +35,7 @@ def collect_recbole_dataset_stats(dataset: Dataset, config: Optional[Dict[str, A
     sparsity_positive = float(1 - num_positive / denom) if denom else 1.0
     sparsity_total = float(1 - total_interactions / denom) if denom else 1.0
 
-    stats: Dict[str, Any] = {
+    stats: dict[str, Any] = {
         "num_users": num_users,
         "num_items": num_items,
         "num_interactions_total": total_interactions,
@@ -113,7 +114,7 @@ def collect_recbole_dataset_stats(dataset: Dataset, config: Optional[Dict[str, A
     return stats
 
 
-def format_dataset_stats_summary(stats: Dict[str, Any]) -> str:
+def format_dataset_stats_summary(stats: dict[str, Any]) -> str:
     lines = [
         SEPARATOR,
         "Dataset Statistics Summary",
@@ -154,30 +155,24 @@ def load_temporal_interaction_data(
     dataset_path: str,
     dataset_name: str,
     granularity: str,
-    time_units: range,
+    time_units: Iterable[int],
     positive_only: bool = True,
 ) -> pd.DataFrame:
-    dataset_dir = Path(dataset_path) / dataset_name
-    dfs = []
+    requested_units = _normalize_time_units(time_units)
+    dataset_dir = find_dataset_dir(dataset_name, dataset_path)
 
-    for unit in time_units:
-        file_path = dataset_dir / f"{dataset_name}.{granularity}_{unit}.inter"
-        if not file_path.exists():
-            continue
-        df = pd.read_csv(file_path, sep="\t")
-        df.columns = [c.split(":")[0] for c in df.columns]
-        df["time_unit"] = unit
-        dfs.append(df)
-
-    if dfs:
-        result = pd.concat(dfs, ignore_index=True)
-        if positive_only and "label" in result.columns:
-            return result[result["label"] == 1].copy()
-        return result
+    temporal_files = [
+        dataset_dir / f"{dataset_name}.{granularity}_{unit}.inter"
+        for unit in requested_units
+        if (dataset_dir / f"{dataset_name}.{granularity}_{unit}.inter").exists()
+    ]
+    if temporal_files:
+        result = load_interaction_dataframe(temporal_files)
+        return _filter_positive_interactions(result) if positive_only else result
 
     full_inter_path = dataset_dir / f"{dataset_name}.inter"
     if not full_inter_path.exists():
-        raise ValueError(f"No data files found for {dataset_name} in range {time_units}")
+        raise ValueError(f"No data files found for {dataset_name} in range {requested_units}")
 
     result = pd.read_csv(full_inter_path, sep="\t")
     result.columns = [c.split(":")[0] for c in result.columns]
@@ -192,14 +187,12 @@ def load_temporal_interaction_data(
 
     start_timestamp = float(timestamps.min())
     result["time_unit"] = ((timestamps - start_timestamp) / seconds_per_unit).astype(int) + 1
-    result = result[result["time_unit"].isin(time_units)].copy()
+    result = result[result["time_unit"].isin(requested_units)].copy()
 
     if result.empty:
-        raise ValueError(f"No data rows found for {dataset_name} in range {time_units}")
+        raise ValueError(f"No data rows found for {dataset_name} in range {requested_units}")
 
-    if positive_only and "label" in result.columns:
-        return result[result["label"] == 1].copy()
-    return result
+    return _filter_positive_interactions(result) if positive_only else result
 
 
 def _seconds_per_unit(granularity: str) -> int:
@@ -213,8 +206,8 @@ def _seconds_per_unit(granularity: str) -> int:
 def compute_temporal_statistics(
     df: pd.DataFrame,
     granularity: str,
-    start_timestamp: Optional[float] = None,
-) -> Dict[str, Any]:
+    start_timestamp: float | None = None,
+) -> dict[str, Any]:
     start_ts = float(start_timestamp) if start_timestamp is not None else float(df["timestamp"].min())
 
     per_unit = df.groupby("time_unit").size()
@@ -234,3 +227,16 @@ def compute_temporal_statistics(
         "user_activity": basic_stats(user_counts.to_numpy()),
         "item_popularity": basic_stats(item_counts.to_numpy()),
     }
+
+
+def _normalize_time_units(time_units: Iterable[int]) -> list[int]:
+    normalized = sorted({int(unit) for unit in time_units})
+    if not normalized:
+        raise ValueError("time_units must contain at least one unit")
+    return normalized
+
+
+def _filter_positive_interactions(df: pd.DataFrame) -> pd.DataFrame:
+    if "label" not in df.columns:
+        return df
+    return df[df["label"] == 1].copy()
