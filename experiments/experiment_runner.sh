@@ -27,7 +27,7 @@ echo "Runs:        $RUNS"
 echo "================================================================================"
 
 # Change to project root
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 python run_stability_test.py \
   --experiment A \
