@@ -13,10 +13,10 @@ import matplotlib
 matplotlib.use("Agg")
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
-from data_analysis.plot.common import COLORS, get_output_dir, print_header, run_cli
+from data_analysis.plot.common import AXIS_LABEL_SIZE, COLORS, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, get_output_dir, print_header, run_cli
 from util.experiment_data import load_experiment_results, extract_temporal_metrics, compute_temporal_stability_stats
 
 # Marker cycle for distinguishing multiple experiments
@@ -46,9 +46,9 @@ def plot_temporal_stability(
     marker_size: float = 6.0,
     vary_markers: bool = False,
     vary_line_styles: bool = False,
-    font_size: float = 11.0,
+    font_size: float = AXIS_LABEL_SIZE,
     title_size: float = 13.0,
-    legend_size: float = 9.0,
+    legend_size: float = LEGEND_FONT_SIZE,
     legend_loc: str = "best",
     legend_alpha: float = 0.8,
     show_grid: bool = True,
@@ -225,9 +225,9 @@ def _plot_metric_lines(
     gran_label = granularity.capitalize() if use_temporal else "Window"
     x_lbl = style_opts["x_label"] or f"Time ({gran_label}s)"
     y_lbl = f"{metric.upper()}{style_opts['y_label_suffix'] or ''}"
-    ax.set_xlabel(x_lbl, fontsize=font_size, fontweight="bold")
-    ax.set_ylabel(y_lbl, fontsize=font_size, fontweight="bold")
-    ax.set_title(f"{metric.upper()} Over Time", fontsize=font_size + 1, fontweight="bold")
+    ax.set_xlabel(x_lbl, fontsize=font_size)
+    ax.set_ylabel(y_lbl, fontsize=font_size)
+    ax.set_title(f"{metric.upper()} Over Time", fontsize=style_opts["title_size"], fontweight="bold")
     if style_opts["show_grid"]:
         ax.grid(True, alpha=style_opts["grid_alpha"], linestyle=style_opts["grid_style"])
     else:
@@ -242,8 +242,8 @@ def _add_figure_titles(
     all_data: List[Dict],
     metadata: Dict,
     exp_ids: List[str],
-    title_size: float = 13.0,
-    font_size: float = 11.0,
+    title_size: float = PLOT_TITLE_SIZE,
+    font_size: float = AXIS_LABEL_SIZE,
     custom_title: Optional[str] = None,
 ) -> None:
     """Add title and subtitle to figure."""
@@ -262,7 +262,7 @@ def _add_figure_titles(
         title = f"Temporal Stability Comparison on {metadata['dataset']} ({n_win} windows, {runs} runs/window)"
         subtitle = f"Models: {models}"
 
-    subtitle_size = max(font_size - 2, 7)
+    subtitle_size = max(font_size - 2, 10)
     fig.suptitle(title, fontsize=title_size, fontweight="bold", y=0.98)
     if subtitle:
         fig.text(0.5, 0.92, subtitle, ha="center", fontsize=subtitle_size, style="italic", color="#555")
@@ -368,8 +368,8 @@ examples:
 
     # --- Text & font sizing ---
     text_group = parser.add_argument_group("text")
-    text_group.add_argument("--font-size", type=float, default=11.0, help="Axis label font size (default: 11)")
-    text_group.add_argument("--title-size", type=float, default=13.0, help="Figure title font size (default: 13)")
+    text_group.add_argument("--font-size", type=float, default=AXIS_LABEL_SIZE, help="Axis label font size (default: 12)")
+    text_group.add_argument("--title-size", type=float, default=PLOT_TITLE_SIZE, help="Figure title font size (default: 13)")
     text_group.add_argument("--title", type=str, default=None, help="Custom figure title")
     text_group.add_argument("--no-title", action="store_true", help="Hide figure title entirely")
     text_group.add_argument("--x-label", type=str, default=None, help="Custom x-axis label")
@@ -377,7 +377,7 @@ examples:
 
     # --- Legend ---
     legend_group = parser.add_argument_group("legend")
-    legend_group.add_argument("--legend-size", type=float, default=9.0, help="Legend font size (default: 9)")
+    legend_group.add_argument("--legend-size", type=float, default=LEGEND_FONT_SIZE, help="Legend font size (default: 10)")
     legend_group.add_argument("--legend-alpha", type=float, default=0.8, help="Legend background opacity (default: 0.8)")
     legend_group.add_argument(
         "--legend-loc", default="best",

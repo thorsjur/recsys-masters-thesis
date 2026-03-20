@@ -3,6 +3,8 @@ from __future__ import annotations
 import pandas as pd
 from matplotlib.axes import Axes
 
+from data_analysis.plot.common import AXIS_LABEL_SIZE, PLOT_TITLE_SIZE, style_axis
+
 
 def plot_interactions_timeline(
     df: pd.DataFrame,
@@ -30,12 +32,10 @@ def plot_interactions_timeline(
         ax.axvspan(day + pd.Timedelta(hours=22), day + pd.Timedelta(days=1), color="gray", alpha=0.15, zorder=0)
         day += pd.Timedelta(days=1)
 
-    ax.set_xlabel("Time", fontsize=11, fontweight="bold")
-    ax.set_ylabel("Number of Interactions", fontsize=11, fontweight="bold")
-    ax.set_title(f"Interaction Volume Over Time ({bucket_hours}h buckets)", fontsize=12, fontweight="bold")
+    style_axis(ax, "Time", "Number of Interactions", f"Interaction Volume Over Time ({bucket_hours}h buckets)")
     ax.grid(True, alpha=0.3, linestyle="--", axis="y")
     ax.tick_params(axis="x", rotation=45)
 
     fig = ax.figure
-    fig.suptitle(f"{dataset_name} - Interactions Over Time", fontsize=12, fontweight="bold")
+    fig.suptitle(f"{dataset_name} - Interactions Over Time", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     fig.tight_layout()

@@ -1,12 +1,3 @@
-"""Sliding window validation and statistics visualization.
-
-Validates that the sliding window methodology functioned as intended by analyzing:
-- Data distribution across windows
-- Cold-start ratios (new items/users in test)
-- Train-test overlap statistics
-- Volume stability assessment
-"""
-
 import argparse
 from pathlib import Path
 from typing import Optional

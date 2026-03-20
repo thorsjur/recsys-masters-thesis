@@ -4,25 +4,28 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
+from data_analysis.plot.common import ANNOTATION_FONT_SIZE, PLOT_TITLE_SIZE, style_axis
+
 
 def plot_user_item_distributions(
     df: pd.DataFrame,
     axes: tuple[Axes, Axes],
     dataset_name: str,
     log_scale: bool,
-    primary_color: str,
+    user_color: str,
+    item_color: str,
 ) -> None:
     ax_user, ax_item = axes
 
     user_counts = df.groupby("user_id").size()
     item_counts = df.groupby("item_id").size()
 
-    _plot_distribution(ax_user, user_counts, "User", primary_color, log_scale)
-    _plot_distribution(ax_item, item_counts, "Item", primary_color, log_scale)
+    _plot_distribution(ax_user, user_counts, "User", user_color, log_scale)
+    _plot_distribution(ax_item, item_counts, "Item", item_color, log_scale)
 
     suffix = " (Log-Log)" if log_scale else ""
     fig = ax_user.figure
-    fig.suptitle(f"{dataset_name} - User Activity & Item Popularity{suffix}", fontsize=12, fontweight="bold")
+    fig.suptitle(f"{dataset_name} - User Activity & Item Popularity{suffix}", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     fig.tight_layout()
 
 
@@ -38,9 +41,7 @@ def _plot_distribution(ax: Axes, counts: pd.Series, label: str, color: str, log_
         suffix = ""
 
     metric = "Activity" if label == "User" else "Popularity"
-    ax.set_xlabel(f"Interactions per {label}", fontsize=11, fontweight="bold")
-    ax.set_ylabel(f"Number of {label}s", fontsize=11, fontweight="bold")
-    ax.set_title(f"{label} {metric} Distribution{suffix}", fontsize=12, fontweight="bold")
+    style_axis(ax, f"Interactions per {label}", f"Number of {label}s", f"{label} {metric} Distribution{suffix}")
     ax.grid(True, alpha=0.3, linestyle="--")
 
     stats_text = f"Mean: {counts.mean():.1f}\nMedian: {counts.median():.1f}\nStd: {counts.std():.1f}"
@@ -51,6 +52,6 @@ def _plot_distribution(ax: Axes, counts: pd.Series, label: str, color: str, log_
         transform=ax.transAxes,
         va="top",
         ha="right",
-        fontsize=9,
+        fontsize=ANNOTATION_FONT_SIZE,
         bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
     )

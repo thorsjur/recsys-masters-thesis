@@ -3,6 +3,8 @@ from __future__ import annotations
 import pandas as pd
 from matplotlib.axes import Axes
 
+from data_analysis.plot.common import LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, style_axis
+
 
 def plot_time_pattern(
     df: pd.DataFrame,
@@ -14,12 +16,12 @@ def plot_time_pattern(
 ) -> None:
     if granularity == "hour":
         _plot_hourly_pattern(df, ax, primary_color)
-        ax.figure.suptitle(f"{dataset_name} - Hourly Interaction Pattern", fontsize=12, fontweight="bold")
+        ax.figure.suptitle(f"{dataset_name} - Hourly Interaction Pattern", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
         ax.figure.tight_layout()
         return
 
     _plot_weekly_histogram(df, ax, bucket_hours, primary_color)
-    ax.figure.suptitle(f"{dataset_name} - Weekly Interaction Histogram", fontsize=12, fontweight="bold")
+    ax.figure.suptitle(f"{dataset_name} - Weekly Interaction Histogram", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     ax.figure.tight_layout()
 
 
@@ -36,12 +38,10 @@ def _plot_hourly_pattern(df: pd.DataFrame, ax: Axes, primary_color: str) -> None
     ax.axvspan(22, 24, alpha=0.1, color="gray")
     ax.axvspan(6, 22, alpha=0.05, color="yellow", label="Day")
 
-    ax.set_xlabel("Hour of Day", fontsize=11, fontweight="bold")
-    ax.set_ylabel("Number of Interactions", fontsize=11, fontweight="bold")
-    ax.set_title("Interaction Pattern by Hour", fontsize=12, fontweight="bold")
+    style_axis(ax, "Hour of Day", "Number of Interactions", "Interaction Pattern by Hour")
     ax.set_xticks(range(0, 24, 2))
     ax.grid(True, alpha=0.3, linestyle="--")
-    ax.legend(loc="upper right", fontsize=9)
+    ax.legend(loc="upper right", fontsize=LEGEND_FONT_SIZE)
 
 
 def _plot_weekly_histogram(df: pd.DataFrame, ax: Axes, bucket_hours: int, primary_color: str) -> None:
@@ -65,9 +65,7 @@ def _plot_weekly_histogram(df: pd.DataFrame, ax: Axes, bucket_hours: int, primar
     tick_positions = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
     tick_labels = [f"{bins[i]}-{bins[i + 1]}h" for i in range(len(bins) - 1)]
 
-    ax.set_xlabel("Hour of Week Bucket", fontsize=11, fontweight="bold")
-    ax.set_ylabel("Number of Interactions", fontsize=11, fontweight="bold")
-    ax.set_title(f"Interaction Histogram by Week ({bucket_hours}h buckets)", fontsize=12, fontweight="bold")
+    style_axis(ax, "Hour of Week Bucket", "Number of Interactions", f"Interaction Histogram by Week ({bucket_hours}h buckets)")
     ax.set_xticks(tick_positions)
     ax.set_xticklabels(tick_labels, rotation=45, ha="right")
     ax.grid(True, alpha=0.3, linestyle="--", axis="y")

@@ -9,13 +9,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from data_analysis.plot.common import AXIS_LABEL_SIZE, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, SEMANTIC_COLORS
+
 
 def save_field_length_distribution(
     lengths: pd.Series,
     field: str,
     output_path: Path,
     max_quantile: float | None = None,
-    primary_color: str = "#2E86AB",
+    primary_color: str = SEMANTIC_COLORS["item_property"],
 ) -> float | None:
     max_len = int(lengths.max())
     bins = np.arange(-0.5, max_len + 1.5, 1)
@@ -36,11 +38,11 @@ def save_field_length_distribution(
     if quantile_value is not None:
         ax.set_xlim(-0.5, quantile_value + 0.5)
 
-    ax.set_xlabel("Length (words)")
-    ax.set_ylabel("Count")
-    ax.set_title(f"{field.title()} Length Distribution")
+    ax.set_xlabel("Length (words)", fontsize=AXIS_LABEL_SIZE)
+    ax.set_ylabel("Count", fontsize=AXIS_LABEL_SIZE)
+    ax.set_title(f"{field.title()} Length Distribution", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     ax.grid(axis="y", alpha=0.25)
-    ax.legend()
+    ax.legend(fontsize=LEGEND_FONT_SIZE)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()

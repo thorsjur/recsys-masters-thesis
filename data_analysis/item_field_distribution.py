@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from data_analysis.atomic_file import find_item_file, load_item_dataframe
+from data_analysis.plot.common import SEMANTIC_COLORS, get_output_dir
 from data_analysis.plot.field_length_distribution import save_field_length_distribution
 
 
@@ -66,7 +67,7 @@ def run(
     if lengths.empty:
         raise ValueError(f"No non-empty values found for field '{field}' in {item_file}")
 
-    output_path = Path(output) if output else item_file.parent / f"{field}_length_distribution.pdf"
+    output_path = Path(output) if output else get_output_dir() / f"{dataset}_{field}_length_distribution.pdf"
     quantile_value = save_field_length_distribution(
         lengths,
         field,
@@ -89,9 +90,13 @@ def main() -> None:
     parser.add_argument("--dataset", required=True, help="Dataset folder name under data/atomic_files")
     parser.add_argument("--field", required=True, help="Field to analyze (e.g. title, abstract)")
     parser.add_argument("--base-path", default="data/atomic_files", help="Base directory containing dataset folders")
-    parser.add_argument("--output", help="Output PDF path (default: <dataset_dir>/<field>_length_distribution.pdf)")
+    parser.add_argument("--output", help="Output PDF path (default: data_analysis/output/<dataset>_<field>_length_distribution.pdf)")
     parser.add_argument("--drop-empty", action="store_true", help="Ignore empty field values before computing lengths")
-    parser.add_argument("--primary-color", default="#2E86AB", help="Primary color for histogram bars")
+    parser.add_argument(
+        "--primary-color",
+        default=SEMANTIC_COLORS["item_property"],
+        help="Primary color for histogram bars",
+    )
     parser.add_argument(
         "--max-quantile",
         type=float,

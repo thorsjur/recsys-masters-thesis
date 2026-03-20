@@ -47,9 +47,9 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         """Load history.parquet from a single data-split directory.
 
         Each user's article list is sorted chronologically by
-        ``impression_time_fixed``.  Truncation to ``max_history_items``
+        impression_time_fixed.  Truncation to max_history_items
         is deferred to :meth:`_augment_user_histories` so that clicks
-        from ``behaviors.parquet`` can be included first.
+        from behaviors.parquet can be included first.
         """
         history_path = os.path.join(path, "history.parquet")
         if not os.path.isfile(history_path):
@@ -81,7 +81,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
 
     @staticmethod
     def _sort_history_by_time(article_ids, impression_times):
-        """Return *article_ids* sorted chronologically by *impression_times*."""
+        """Return article_ids sorted chronologically by impression_times."""
         if article_ids is None or not hasattr(article_ids, "__len__") or len(article_ids) <= 1:
             return article_ids if not hasattr(article_ids, "tolist") else article_ids.tolist()
 
@@ -93,19 +93,12 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
     def _augment_user_histories(self, df_behaviors: pd.DataFrame) -> pd.DataFrame:
         """Augment each impression's history with clicked items from earlier impressions.
 
-        For every impression row the resulting ``article_id_fixed`` column
-        contains::
-
-            base_history (from history.parquet, chronological)
-            + clicked items from all strictly *earlier* impressions in behaviours
-
         The combined list is then truncated to the last
-        ``max_history_items`` entries (most-recent) when that config
+        max_history_items entries (most-recent) when that config
         option is set.
-
-        The DataFrame is returned sorted by ``(user_id, impression_time)``
-        so that subsequent chunked processing sees rows in temporal order.
         """
+        print("Augmenting user histories with prior clicks from behaviors...")
+
         has_history = "article_id_fixed" in df_behaviors.columns
         has_clicks = "article_ids_clicked" in df_behaviors.columns
 
@@ -115,37 +108,40 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         max_hist = self.config.options.get("max_history_items")
 
         # Ensure a deterministic chronological order per user.
-        df = df_behaviors.copy()
+        df = df_behaviors
         df["_sort_ts"] = df["impression_time"].astype("datetime64[ns]").astype(np.int64)
-        df = df.sort_values(["user_id", "_sort_ts", "impression_id"]).reset_index(drop=True)
+        df.sort_values(["user_id", "_sort_ts", "impression_id"], inplace=True, kind="stable")
+        df.reset_index(drop=True, inplace=True)
 
         # Pre-extract columns for fast row-level iteration.
         user_ids = df["user_id"].to_numpy()
         clicked_lists = df["article_ids_clicked"].tolist()
-        base_histories = df["article_id_fixed"].tolist() if has_history else [None] * len(df)
+        base_histories = df["article_id_fixed"].tolist() if has_history else None
 
         n = len(df)
         augmented: List = [None] * n
 
         prev_user = None
-        cum_clicks: List = []  # clicks accumulated from prior impressions
-        base: List = []        # base history from history.parquet (per user)
+        cumulative_clicks: List = []  # clicks accumulated from prior impressions
+        base: List = []  # base history from history.parquet (per user)
 
-        for i in range(n):
+        for i in tqdm(range(n), desc="Augmenting histories", unit="rows"):
             uid = user_ids[i]
 
             # new user: reset accumulators
             if uid != prev_user:
                 prev_user = uid
-                cum_clicks = []
-                h = base_histories[i]
+                cumulative_clicks = []
+                h = base_histories[i] if base_histories is not None else None
                 if h is not None and not (isinstance(h, float) and np.isnan(h)):
                     base = list(h)  # type: ignore[arg-type]
+                    if max_hist is not None and len(base) > max_hist:
+                        base = base[-max_hist:]
                 else:
                     base = []
 
             # History for this impression = base + prior clicks
-            full = base + cum_clicks
+            full = base + cumulative_clicks
             if max_hist is not None and len(full) > max_hist:
                 full = full[-max_hist:]
             augmented[i] = full
@@ -153,10 +149,12 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
             # Add this impression's clicks for following impressions.
             clicked = clicked_lists[i]
             if clicked is not None and hasattr(clicked, "__len__") and len(clicked) > 0:
-                cum_clicks.extend(clicked)
+                cumulative_clicks.extend(clicked)
+                if max_hist is not None and len(cumulative_clicks) > max_hist:
+                    cumulative_clicks = cumulative_clicks[-max_hist:]
 
         df["article_id_fixed"] = augmented
-        df = df.drop(columns=["_sort_ts"])
+        df.drop(columns=["_sort_ts"], inplace=True)
 
         print(
             f"Augmented user histories with behaviour clicks"
@@ -261,7 +259,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         return result, total_rows
 
     def _gather_all_user_ids(self, data_paths: List[str]) -> np.ndarray:
-        """Read only the ``user_id`` column from every behaviours file
+        """Read only the user_id column from every behaviours file
         and return the deduplicated union as a numpy array.
         """
         all_users: set = set()
@@ -282,7 +280,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         print("Loading articles file...")
         self.df_item = self._load_articles_file()
         self.df_item = self.df_item.rename(columns={"article_id": "item_id"})
-        
+
         # Rename "subtitle" to "abstract" for consistency with other datasets
         self.df_item = self.df_item.rename(columns={"subtitle": "abstract"})
         print(f"Loaded {len(self.df_item):,} articles")

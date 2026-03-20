@@ -11,6 +11,10 @@ from util.constants import SEPARATOR
 from util.experiment_data import load_experiment_results
 
 DEFAULT_OUTPUT_DIR = Path("data_analysis/output")
+AXIS_LABEL_SIZE = 12
+PLOT_TITLE_SIZE = 13
+LEGEND_FONT_SIZE = 10
+ANNOTATION_FONT_SIZE = 10
 
 COLORS = [
     "#2E86AB",
@@ -22,6 +26,18 @@ COLORS = [
     "#E74C3C",
     "#0E6453",
 ]
+
+SEMANTIC_COLORS = {
+    "user_interaction": "#2E86AB",
+    "item_interaction": "#D4AF37",
+    "item_property": "#06A77D",
+}
+
+
+def style_axis(ax, xlabel: str, ylabel: str, title: str, *, title_pad: float = 12) -> None:
+    ax.set_xlabel(xlabel, fontsize=AXIS_LABEL_SIZE)
+    ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_SIZE)
+    ax.set_title(title, fontsize=PLOT_TITLE_SIZE, fontweight="bold", pad=title_pad)
 
 
 def get_output_dir(output_dir: str | None = None) -> Path:

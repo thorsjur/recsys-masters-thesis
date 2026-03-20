@@ -1,10 +1,12 @@
 """Plotting utilities for window validation and statistics."""
 
 from typing import Optional
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from matplotlib.axes import Axes
+
+from data_analysis.plot.common import AXIS_LABEL_SIZE, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE
 
 COLORS = {
     "train": "#2E86AB",
@@ -18,9 +20,9 @@ COLORS = {
 
 def _setup_axis(ax: Axes, xlabel: str, ylabel: str, title: str):
     """Apply common axis formatting."""
-    ax.set_xlabel(xlabel, fontsize=12, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=12, fontweight="bold")
-    ax.set_title(title, fontsize=13, fontweight="bold", pad=15)
+    ax.set_xlabel(xlabel, fontsize=AXIS_LABEL_SIZE)
+    ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_SIZE)
+    ax.set_title(title, fontsize=PLOT_TITLE_SIZE, fontweight="bold", pad=15)
     ax.grid(True, alpha=0.3, linestyle="--", axis="y")
 
 
@@ -81,14 +83,14 @@ def plot_window_data_distribution(
     )
 
     _setup_axis(ax, "Window Number", "Number of Interactions", title)
-    ax2.set_ylabel("Number of Items", fontsize=12, fontweight="bold")
+    ax2.set_ylabel("Number of Items", fontsize=AXIS_LABEL_SIZE)
     ax.set_xticks(x)
     ax.set_xticklabels([str(int(w)) for w in windows])
 
     # Combined legend
     handles1, labels1 = ax.get_legend_handles_labels()
     handles2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(handles1 + handles2, labels1 + labels2, loc="upper left", fontsize=10)
+    ax.legend(handles1 + handles2, labels1 + labels2, loc="upper left", fontsize=LEGEND_FONT_SIZE)
 
     return ax
 
@@ -132,8 +134,7 @@ def plot_cold_start_ratios(
     ax.set_xticks(x)
     ax.set_xticklabels([str(int(w)) for w in windows])
     ax.set_ylim(0, max(user_pct.max(), item_pct.max()) * 1.15)
-    ax.legend(loc="upper right", fontsize=10)
+    ax.legend(loc="upper right", fontsize=LEGEND_FONT_SIZE)
 
     return ax
-
 
