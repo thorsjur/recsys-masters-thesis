@@ -1,12 +1,3 @@
-"""
-Job state persistence for robust experiment tracking.
-
-Provides persistent state management for Slurm experiments, enabling:
-- Recovery from failures
-- Selective job restarts
-- Pause/resume functionality
-"""
-
 import json
 import logging
 import os

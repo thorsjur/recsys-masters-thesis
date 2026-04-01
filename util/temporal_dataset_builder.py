@@ -1,5 +1,3 @@
-"""Builds temporal train/test splits from time-wise interaction files."""
-
 import logging
 import shutil
 import pandas as pd

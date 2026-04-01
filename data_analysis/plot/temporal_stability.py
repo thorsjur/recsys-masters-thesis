@@ -2,12 +2,10 @@
 
 Plots model performance across sliding windows to analyze stability over time.
 """
-
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-
 import matplotlib
 
 matplotlib.use("Agg")

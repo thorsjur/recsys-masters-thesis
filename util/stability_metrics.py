@@ -1,5 +1,3 @@
-"""Stability metrics for evaluating recommendation model consistency."""
-
 import numpy as np
 from typing import Dict, List, Optional
 

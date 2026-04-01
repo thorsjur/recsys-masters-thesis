@@ -1,10 +1,8 @@
-from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 from typing import Any
-
 import pandas as pd
 
 from data_analysis.atomic_file import find_interaction_files, load_interaction_dataframe

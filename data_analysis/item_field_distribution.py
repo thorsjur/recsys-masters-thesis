@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
-
 import numpy as np
 
 from data_analysis.atomic_file import find_item_file, load_item_dataframe

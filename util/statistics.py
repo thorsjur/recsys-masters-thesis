@@ -1,5 +1,3 @@
-"""Statistical utilities for stability analysis."""
-
 import numpy as np
 from typing import Union, List
 

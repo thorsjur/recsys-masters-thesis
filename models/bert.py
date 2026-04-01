@@ -2,7 +2,6 @@ import torch
 from tqdm import tqdm
 from models.non_train_base_model import NewsEmbeddingRecommender
 from transformers import AutoTokenizer, AutoModel
-
 import os
 import json
 import hashlib

@@ -2,7 +2,6 @@ import hashlib
 import io
 from logging import getLogger
 import os
-
 import torch
 
 from models.embeddings.token_embedding_provider import BaseTokenEmbeddingProvider, register_token_provider

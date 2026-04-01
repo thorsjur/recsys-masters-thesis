@@ -1,10 +1,3 @@
-"""
-Experiment A: Temporal Stability
-
-Measures robustness to temporal drift using sliding window evaluation.
-Evaluates models on different time windows without retraining.
-"""
-
 import logging
 import sys
 from dataclasses import dataclass

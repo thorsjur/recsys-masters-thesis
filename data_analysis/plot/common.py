@@ -1,9 +1,7 @@
 """Shared utilities for plotting modules."""
-
 import argparse
 from pathlib import Path
 from typing import Any
-
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 

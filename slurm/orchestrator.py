@@ -8,7 +8,6 @@ Handles the high-level workflow of:
 - Monitoring progress
 - Recovery and restart operations
 """
-
 import logging
 import time
 from dataclasses import dataclass, field

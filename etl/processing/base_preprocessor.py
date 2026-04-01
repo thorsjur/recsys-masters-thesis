@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Set
-
 import numpy as np
 import pandas as pd
 

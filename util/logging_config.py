@@ -1,5 +1,3 @@
-"""Logging configuration with print capture support."""
-
 import logging
 import os
 import sys
@@ -9,7 +7,6 @@ from typing import Optional
 
 _original_stdout = sys.stdout
 _original_stderr = sys.stderr
-
 import builtins
 
 def install_print_hook(logger: logging.Logger, level: int = logging.INFO):

@@ -23,12 +23,10 @@ Reports:
   - 95% CI of mean(Δ) via block bootstrap
   - fitted GP kernel (when trend_type='gp')
 """
-
 import argparse
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -39,7 +37,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from scipy import stats as sp_stats
 
-from data_analysis.plot.common import get_output_dir, print_header, run_cli
+from data_analysis.plot.common import AXIS_LABEL_SIZE, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, get_output_dir, print_header, run_cli
 from util.experiment_data import load_experiment_results, extract_temporal_metrics
 
 try:
@@ -307,9 +305,9 @@ def plot_delta_bars(
     metrics: Optional[List[str]] = None,
     output_path: Optional[str] = None,
     figsize: Tuple[float, float] = (14, 5),
-    font_size: float = 11.0,
-    title_size: float = 13.0,
-    legend_size: float = 9.0,
+    font_size: float = AXIS_LABEL_SIZE,
+    title_size: float = PLOT_TITLE_SIZE,
+    legend_size: float = LEGEND_FONT_SIZE,
     dpi: int = 300,
     output_format: str = "pdf",
     dark_mode: bool = False,
@@ -690,9 +688,9 @@ examples:
 
     # --- Text ---
     text_group = parser.add_argument_group("text")
-    text_group.add_argument("--font-size", type=float, default=11.0, help="Axis label font size (default: 11)")
+    text_group.add_argument("--font-size", type=float, default=AXIS_LABEL_SIZE, help="Axis label font size (default: 12)")
     text_group.add_argument("--title-size", type=float, default=13.0, help="Figure title font size (default: 13)")
-    text_group.add_argument("--legend-size", type=float, default=9.0, help="Legend font size (default: 9)")
+    text_group.add_argument("--legend-size", type=float, default=LEGEND_FONT_SIZE, help="Legend font size (default: 10)")
     text_group.add_argument("--title", type=str, default=None, help="Custom figure title")
     text_group.add_argument("--no-title", action="store_true", help="Hide figure title")
     text_group.add_argument("--x-label", type=str, default=None, help="Custom x-axis label")

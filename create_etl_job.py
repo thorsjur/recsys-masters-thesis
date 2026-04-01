@@ -1,21 +1,3 @@
-#!/usr/bin/env python3
-"""
-Generate Slurm job script for ETL pipeline.
-
-Creates a .sh script for running run_etl.py on an HPC cluster.
-The generated script can be submitted manually with sbatch.
-
-Usage:
-    python create_etl_job.py \\
-        --config mind_small_no_preprocessing \\
-        --temporal-hours 168 \\
-        --account <your_account> \\
-        --output etl_mind_small.sh
-
-    # Then submit manually:
-    sbatch etl_mind_small.sh
-"""
-
 import argparse
 from pathlib import Path
 from string import Template

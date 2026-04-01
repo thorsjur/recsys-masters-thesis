@@ -7,7 +7,6 @@ Handles interaction with the Slurm workload manager:
 - Job cancellation
 - Output retrieval
 """
-
 import logging
 import os
 import re

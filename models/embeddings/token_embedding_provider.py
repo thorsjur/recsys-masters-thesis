@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Dict, Optional
-
 import torch
 
 from recbole.data.dataset import Dataset

@@ -7,10 +7,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from data_analysis.dataset_analysis import compute_temporal_statistics, load_temporal_interaction_data
+from data_analysis.atomic_file import find_item_file, load_item_dataframe
 from data_analysis.dataset_summary_table import save_dataset_summary_table, summarize_interaction_dataframe
-from data_analysis.plot.common import (
-    SEMANTIC_COLORS,
+from plot.common import (
     collect_windows,
     get_output_dir,
     get_time_range,
@@ -19,11 +18,10 @@ from data_analysis.plot.common import (
     run_cli,
     save_figure,
 )
-from data_analysis.plot.item_age_distribution import plot_item_age_distribution
-from data_analysis.plot.item_lifetime_distribution import plot_item_lifetime_distribution
-from data_analysis.plot.dataset_interactions_timeline import plot_interactions_timeline
-from data_analysis.plot.dataset_time_pattern import plot_time_pattern
-from data_analysis.plot.dataset_user_item_distributions import plot_user_item_distributions
+from plot.dataset_interactions_timeline import plot_interactions_timeline
+from plot.dataset_time_pattern import plot_time_pattern
+from plot.dataset_user_item_distributions import plot_user_item_distributions
+from util.dataset_analysis import compute_temporal_statistics, load_temporal_interaction_data
 
 
 def analyze_dataset_from_experiment(
@@ -36,10 +34,6 @@ def analyze_dataset_from_experiment(
     log_scale: bool = False,
     primary_color: str = "#2E86AB",
     bucket_hours: int = 24,
-    lifetime_bucket_hours: float = 1.0,
-    lifetime_max_percentile: float | None = 99.0,
-    ignore_single_interaction_items: bool = False,
-    item_age_absolute_values: bool = False,
 ) -> Dict[str, Any]:
     results, first = load_experiment(experiment_id, jsonl_path, require_temporal=True)
 
@@ -70,70 +64,33 @@ def analyze_dataset_from_experiment(
 
     stats = compute_temporal_statistics(df, granularity, start_timestamp)
     out_dir = get_output_dir(output_dir)
-    output_paths: list[str] = []
-    table_paths: list[str] = []
-    user_interaction_color = primary_color
-    item_interaction_color = SEMANTIC_COLORS["item_interaction"]
-    item_property_color = SEMANTIC_COLORS["item_property"]
+    output_paths = []
+    table_paths = []
 
     fig1, ax1 = plt.subplots(figsize=figsize)
-    plot_interactions_timeline(df, ax1, dataset_name, bucket_hours, user_interaction_color)
+    plot_interactions_timeline(df, ax1, dataset_name, bucket_hours, primary_color)
     path1 = out_dir / f"{experiment_id}_interactions_timeline.pdf"
     save_figure(fig1, path1)
-    output_paths.append(str(path1))
+    output_paths.append(path1)
 
     fig2, ax2 = plt.subplots(figsize=figsize)
-    plot_time_pattern(df, ax2, dataset_name, granularity, bucket_hours, user_interaction_color)
+    plot_time_pattern(df, ax2, dataset_name, granularity, bucket_hours, primary_color)
     path2 = out_dir / f"{experiment_id}_time_pattern.pdf"
     save_figure(fig2, path2)
-    output_paths.append(str(path2))
+    output_paths.append(path2)
 
     fig3, axes = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
-    plot_user_item_distributions(
-        df,
-        (axes[0], axes[1]),
-        dataset_name,
-        log_scale,
-        user_color=user_interaction_color,
-        item_color=item_interaction_color,
-    )
+    plot_user_item_distributions(df, (axes[0], axes[1]), dataset_name, log_scale, primary_color)
     path3 = out_dir / f"{experiment_id}_distributions.pdf"
     save_figure(fig3, path3)
-    output_paths.append(str(path3))
-    fig4, ax4 = plt.subplots(figsize=figsize)
-    plot_item_age_distribution(
-        df,
-        ax4,
-        dataset_name,
-        bucket_hours=lifetime_bucket_hours,
-        color=item_property_color,
-        normalize=not item_age_absolute_values,
-        max_percentile=lifetime_max_percentile,
-        ignore_single_interaction_items=ignore_single_interaction_items,
-    )
-    path4 = out_dir / f"{experiment_id}_item_age_distribution.pdf"
-    save_figure(fig4, path4)
-    output_paths.append(str(path4))
+    output_paths.append(path3)
 
-    fig5, ax5 = plt.subplots(figsize=figsize)
-    plot_item_lifetime_distribution(
-        df,
-        ax5,
-        dataset_name,
-        bucket_hours=lifetime_bucket_hours,
-        color=item_property_color,
-        max_percentile=lifetime_max_percentile,
-        ignore_single_interaction_items=ignore_single_interaction_items,
-    )
-    path5 = out_dir / f"{experiment_id}_item_lifetime_distribution.pdf"
-    save_figure(fig5, path5)
-    output_paths.append(str(path5))
-
+    item_df = _maybe_load_item_dataframe(dataset_name, dataset_path)
     summary_table = save_dataset_summary_table(
-        _build_summary_table(dataset_name, df),
-        out_dir / f"{experiment_id}_dataset_summary.json",
+        _build_summary_table(dataset_name, df, item_df),
+        out_dir / f"{experiment_id}_dataset_summary.csv",
     )
-    table_paths.append(str(summary_table))
+    table_paths.append(summary_table)
 
     _print_summary(experiment_id, dataset_name, granularity, min_unit, max_unit, stats, len(windows))
     print(f"\nGenerated {len(output_paths)} plots and {len(table_paths)} table in: {out_dir}\n")
@@ -141,8 +98,8 @@ def analyze_dataset_from_experiment(
     return {
         "statistics": stats,
         "dataframe": df,
-        "output_paths": output_paths,
-        "table_paths": table_paths,
+        "output_paths": [str(path) for path in output_paths],
+        "table_paths": [str(path) for path in table_paths],
     }
 
 
@@ -195,15 +152,19 @@ def _run(args: argparse.Namespace) -> None:
         log_scale=args.log_scale,
         primary_color=args.primary_color,
         bucket_hours=args.bucket_hours,
-        lifetime_bucket_hours=args.lifetime_bucket_hours,
-        lifetime_max_percentile=args.lifetime_max_percentile,
-        ignore_single_interaction_items=args.ignore_single_interaction_items,
-        item_age_absolute_values=args.item_age_absolute_values,
     )
 
 
-def _build_summary_table(dataset_name: str, df: pd.DataFrame) -> dict[str, Any]:
-    return summarize_interaction_dataframe(dataset_name, df)
+def _build_summary_table(dataset_name: str, df: pd.DataFrame, item_df: pd.DataFrame | None) -> pd.DataFrame:
+    return pd.DataFrame([summarize_interaction_dataframe(dataset_name, df, item_df)])
+
+
+def _maybe_load_item_dataframe(dataset_name: str, dataset_path: str) -> pd.DataFrame | None:
+    try:
+        item_path = find_item_file(dataset_name, dataset_path)
+    except FileNotFoundError:
+        return None
+    return load_item_dataframe(item_path)
 
 
 def main() -> None:
@@ -215,26 +176,9 @@ def main() -> None:
     parser.add_argument("--start-timestamp", type=float, help="Start timestamp (Unix)")
     parser.add_argument("--figsize", nargs=2, type=float, default=[12, 6], help="Figure size")
     parser.add_argument("--log-scale", action="store_true", help="Use log-log scale for distributions")
-    parser.add_argument("--primary-color", default=SEMANTIC_COLORS["user_interaction"], help="Color for user-interaction plots")
+    parser.add_argument("--primary-color", default="#2E86AB", help="Primary color for histogram bars")
     parser.add_argument("--hist-color", dest="primary_color", help=argparse.SUPPRESS)
     parser.add_argument("--bucket-hours", type=int, default=24, help="Bucket size in hours for histogram plots")
-    parser.add_argument("--lifetime-bucket-hours", type=float, default=1.0, help="Bucket size in hours for item age/lifetime histograms")
-    parser.add_argument(
-        "--lifetime-max-percentile",
-        type=float,
-        default=99.0,
-        help="Trim item age/lifetime histograms to this percentile; use 100 for the full range",
-    )
-    parser.add_argument(
-        "--ignore-single-interaction-items",
-        action="store_true",
-        help="Ignore items with only one interaction in the item age and lifetime plots",
-    )
-    parser.add_argument(
-        "--item-age-absolute-values",
-        action="store_true",
-        help="Show average interaction counts per item in the item-age plot instead of percentage shares",
-    )
     run_cli(_run, parser)
 
 

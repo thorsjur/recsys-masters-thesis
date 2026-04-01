@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
-
 import torch
 
 from recbole.config import Config

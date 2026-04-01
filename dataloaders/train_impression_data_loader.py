@@ -1,5 +1,4 @@
 from dataloaders.base_impression_data_loader import ImpressionDataLoader
-
 import numpy as np
 import torch
 

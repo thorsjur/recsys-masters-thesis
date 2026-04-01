@@ -1,5 +1,3 @@
-"""Experiment data loading and metric extraction utilities."""
-
 import json
 import logging
 import numpy as np

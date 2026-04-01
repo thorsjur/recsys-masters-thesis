@@ -3,11 +3,9 @@
 Computes and visualizes grand mean performance averaged across all temporal
 windows and experimental runs, showing overall model performance with variance.
 """
-
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-
 import matplotlib
 
 from util.constants import DEFAULT_METRICS
@@ -18,7 +16,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 
-from data_analysis.plot.common import COLORS, get_output_dir, print_header, run_cli
+from data_analysis.plot.common import AXIS_LABEL_SIZE, COLORS, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, get_output_dir, print_header, run_cli
 from util.experiment_data import load_experiment_results
 
 
@@ -140,7 +138,7 @@ def plot_grand_mean_comparison(
         f"Averaged across {meta['n_windows']} windows × {meta['n_runs_per_window']:.0f} runs = "
         f"N={meta['total_points']} per model"
     )
-    fig.suptitle(title, fontsize=13, fontweight="bold", y=0.98)
+    fig.suptitle(title, fontsize=PLOT_TITLE_SIZE, fontweight="bold", y=0.98)
     plt.tight_layout(rect=(0, 0.02, 1, 0.94))
 
     # Save
@@ -188,7 +186,7 @@ def _plot_metric_bars(
             0.98,
             f"Error: {label}",
             transform=ax.transAxes,
-            fontsize=8,
+            fontsize=LEGEND_FONT_SIZE - 1,
             va="top",
             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
         )
@@ -200,14 +198,13 @@ def _plot_metric_bars(
             f"{mean:.4f}\n(N={n})",
             ha="center",
             va="bottom",
-            fontsize=8,
-            fontweight="bold",
+            fontsize=LEGEND_FONT_SIZE - 1,
         )
 
-    ax.set_ylabel(metric.upper(), fontsize=11, fontweight="bold")
-    ax.set_title(f"{metric.upper()} - Grand Mean", fontsize=12, fontweight="bold")
+    ax.set_ylabel(metric.upper(), fontsize=AXIS_LABEL_SIZE)
+    ax.set_title(f"{metric.upper()} - Grand Mean", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     ax.set_xticks(x)
-    ax.set_xticklabels(models, rotation=45, ha="right", fontsize=9)
+    ax.set_xticklabels(models, rotation=45, ha="right", fontsize=LEGEND_FONT_SIZE)
     ax.grid(True, alpha=0.3, linestyle="--", axis="y")
 
     # Y-axis limits

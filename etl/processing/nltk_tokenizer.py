@@ -1,5 +1,4 @@
 from logging import getLogger
-
 import pandas as pd
 from tqdm import tqdm
 

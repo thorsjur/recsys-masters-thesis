@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from logging import getLogger
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
-
 import numpy as np
 import torch
 
