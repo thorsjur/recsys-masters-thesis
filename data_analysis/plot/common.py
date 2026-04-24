@@ -2,17 +2,26 @@
 import argparse
 from pathlib import Path
 from typing import Any
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from util.constants import SEPARATOR
 from util.experiment_data import load_experiment_results
 
+import matplotlib.font_manager as fm
+
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+matplotlib.rcParams['font.family'] = 'serif'
+matplotlib.rcParams['font.serif'] = ['Charter', 'DejaVu Serif']
+
 DEFAULT_OUTPUT_DIR = Path("data_analysis/output")
-AXIS_LABEL_SIZE = 12
-PLOT_TITLE_SIZE = 13
-LEGEND_FONT_SIZE = 10
-ANNOTATION_FONT_SIZE = 10
+AXIS_LABEL_SIZE = 16
+AXIS_NUMBER_SIZE = 14
+PLOT_TITLE_SIZE = 20
+LEGEND_FONT_SIZE = 16
+ANNOTATION_FONT_SIZE = 16
 
 COLORS = [
     "#2E86AB",
@@ -31,11 +40,17 @@ SEMANTIC_COLORS = {
     "item_property": "#06A77D",
 }
 
+DATASET_NAMING = {
+    "ebnerd": "EB-NeRD",
+    "mind": "MIND",
+}
+
 
 def style_axis(ax, xlabel: str, ylabel: str, title: str, *, title_pad: float = 12) -> None:
     ax.set_xlabel(xlabel, fontsize=AXIS_LABEL_SIZE)
     ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_SIZE)
     ax.set_title(title, fontsize=PLOT_TITLE_SIZE, fontweight="bold", pad=title_pad)
+    ax.tick_params(axis="both", which="major", labelsize=AXIS_NUMBER_SIZE)
 
 
 def get_output_dir(output_dir: str | None = None) -> Path:

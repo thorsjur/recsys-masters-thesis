@@ -2,7 +2,7 @@
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import AXIS_LABEL_SIZE, PLOT_TITLE_SIZE, style_axis
+from data_analysis.plot.common import AXIS_LABEL_SIZE, PLOT_TITLE_SIZE, style_axis, DATASET_NAMING
 
 
 def plot_interactions_timeline(
@@ -36,5 +36,5 @@ def plot_interactions_timeline(
     ax.tick_params(axis="x", rotation=45)
 
     fig = ax.figure
-    fig.suptitle(f"{dataset_name} - Interactions Over Time", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
+    fig.suptitle(f"{DATASET_NAMING.get(dataset_name, dataset_name)} Interactions Over Time", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     fig.tight_layout()

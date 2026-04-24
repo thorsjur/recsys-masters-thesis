@@ -69,6 +69,7 @@ def run(
         lengths,
         field,
         output_path,
+        dataset_name=dataset,
         max_quantile=max_quantile,
         primary_color=primary_color,
     )

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import ANNOTATION_FONT_SIZE, PLOT_TITLE_SIZE, style_axis
+from data_analysis.plot.common import ANNOTATION_FONT_SIZE, PLOT_TITLE_SIZE, style_axis, DATASET_NAMING
 
 
 def plot_user_item_distributions(
@@ -24,7 +24,7 @@ def plot_user_item_distributions(
 
     suffix = " (Log-Log)" if log_scale else ""
     fig = ax_user.figure
-    fig.suptitle(f"{dataset_name} - User Activity & Item Popularity{suffix}", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
+    fig.suptitle(f"{DATASET_NAMING.get(dataset_name, dataset_name)} User Activity & Item Popularity{suffix}", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     fig.tight_layout()
 
 
@@ -34,13 +34,11 @@ def _plot_distribution(ax: Axes, counts: pd.Series, label: str, color: str, log_
         ax.hist(counts, bins=bins, color=color, alpha=0.7, edgecolor="black")
         ax.set_xscale("log")
         ax.set_yscale("log")
-        suffix = " (Log-Log)"
     else:
         ax.hist(counts, bins=50, color=color, alpha=0.7, edgecolor="black")
-        suffix = ""
 
     metric = "Activity" if label == "User" else "Popularity"
-    style_axis(ax, f"Interactions per {label}", f"Number of {label}s", f"{label} {metric} Distribution{suffix}")
+    style_axis(ax, f"Interactions per {label}", f"Number of {label}s", f"{label} {metric} Distribution")
     ax.grid(True, alpha=0.3, linestyle="--")
 
     stats_text = f"Mean: {counts.mean():.1f}\nMedian: {counts.median():.1f}\nStd: {counts.std():.1f}"

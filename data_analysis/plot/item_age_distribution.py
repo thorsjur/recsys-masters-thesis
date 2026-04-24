@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import PLOT_TITLE_SIZE, style_axis
+from data_analysis.plot.common import PLOT_TITLE_SIZE, style_axis, DATASET_NAMING
 from data_analysis.plot.lifetime_common import (
     DEFAULT_QUANTILES,
     add_quantile_lines,
@@ -37,7 +37,7 @@ def plot_item_age_distribution(
     ylabel = "Average Share of Interactions per Item (%)" if normalize else "Average Number of Interactions per Item"
 
     ax.bar(x_values, y_values, width=bucket_hours, align="edge", color=color, edgecolor="black", alpha=0.85)
-    title = "Average Interaction Share per Item Over Item Age" if normalize else "Average Interaction Count per Item Over Item Age"
+    title = f"{DATASET_NAMING.get(dataset_name, dataset_name)} Article Recency Distribution"
     style_axis(ax, "Item Age (hours)", ylabel, title)
     ax.grid(axis="x", which="major", alpha=0.15)
     if cutoff is not None:
@@ -47,7 +47,6 @@ def plot_item_age_distribution(
     if show_quantiles:
         add_quantile_lines(ax, quantile_hours, quantiles=quantiles, x_max=cutoff)
 
-    ax.figure.suptitle(f"{dataset_name} - Item Age Distribution", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     ax.figure.tight_layout()
 
 

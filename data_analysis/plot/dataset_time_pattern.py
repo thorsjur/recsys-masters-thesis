@@ -2,7 +2,7 @@
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, style_axis
+from data_analysis.plot.common import LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, style_axis, DATASET_NAMING
 
 
 def plot_time_pattern(
@@ -15,12 +15,12 @@ def plot_time_pattern(
 ) -> None:
     if granularity == "hour":
         _plot_hourly_pattern(df, ax, primary_color)
-        ax.figure.suptitle(f"{dataset_name} - Hourly Interaction Pattern", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
+        ax.figure.suptitle(f"{DATASET_NAMING.get(dataset_name, dataset_name)} Hourly Interaction Pattern", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
         ax.figure.tight_layout()
         return
 
     _plot_weekly_histogram(df, ax, bucket_hours, primary_color)
-    ax.figure.suptitle(f"{dataset_name} - Weekly Interaction Histogram", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
+    ax.figure.suptitle(f"{DATASET_NAMING.get(dataset_name, dataset_name)} Weekly Interaction Histogram", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
     ax.figure.tight_layout()
 
 
