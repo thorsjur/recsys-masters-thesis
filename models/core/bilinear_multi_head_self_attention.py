@@ -30,7 +30,7 @@ class BilinearMultiHeadSelfAttention(nn.Module):
         self.head_dim = head_dim
         self.output_dim = num_heads * head_dim
 
-        self.Q = nn.Parameter(torch.empty(num_heads, input_dim, input_dim))  # (H, D, D)
+        self.Q = nn.Parameter(torch.empty(num_heads, input_dim, input_dim)) # (H, D, D)
         self.V = nn.Parameter(torch.empty(num_heads, head_dim, input_dim))
 
         # Initialized following the NRMS notebook impl.

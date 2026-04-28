@@ -1,29 +1,18 @@
-"""
-Slurm job submission and management.
-
-Handles interaction with the Slurm workload manager:
-- Job submission
-- Status monitoring
-- Job cancellation
-- Output retrieval
-"""
 import logging
 import os
 import re
 import shlex
 import subprocess
-import time
 from datetime import datetime
 from pathlib import Path
 from string import Template
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from slurm.slurm_constants import DEFAULT_CONDA_MODULE
 from slurm.state import (
     JobState,
     TaskInfo,
     ExperimentConfig,
-    ExperimentProgress,
     StateManager,
 )
 
@@ -32,10 +21,10 @@ logger = logging.getLogger(__name__)
 
 class SlurmJobManager:
     """
-    Manages Slurm job submission and monitoring.
+    Manages Slurm job submission, status, and cancellation.
     """
 
-    # Map Slurm job states to our JobState enum
+    # Map Slurm job states to the JobState enum
     SLURM_STATE_MAP = {
         "PENDING": JobState.SUBMITTED,
         "RUNNING": JobState.RUNNING,
@@ -82,7 +71,7 @@ class SlurmJobManager:
         script_path = self.scripts_dir / config.experiment_id / script_name
         script_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Build the Python command
+        # Build the python command
         python_cmd = self._build_python_command(config, task, window_config)
 
         # Build Slurm directives
@@ -117,13 +106,9 @@ class SlurmJobManager:
         output_file = log_dir / f"{task.task_id}_%j.out"
         error_file = log_dir / f"{task.task_id}_%j.err"
 
-        # Account is REQUIRED on IDUN
+        # Account is required on IDUN
         if not config.account:
-            raise ValueError(
-                "Slurm account is required on IDUN. "
-                "Use --account to specify your allocation account. "
-                "Run 'sacctmgr show assoc format=Account%15,User,QOS | grep $USER' to find your accounts."
-            )
+            raise ValueError("Slurm account is required on IDUN. ")
 
         directives = [
             f"#SBATCH --account={config.account}",
@@ -137,7 +122,7 @@ class SlurmJobManager:
             f"#SBATCH --error={error_file}",
         ]
 
-        # GPU configuration for IDUN (uses --gres=gpu:TYPE:COUNT)
+        # GPU configuration for IDUN
         if config.gpu_count > 0:
             if config.gpu_type:
                 # Specific GPU type requested (p100, v100, a100, h100)
@@ -146,11 +131,9 @@ class SlurmJobManager:
                 # Any GPU
                 directives.append(f"#SBATCH --gres=gpu:{config.gpu_count}")
 
-            # GPU memory/feature constraint (gpu16g, gpu32g, gpu40g, gpu80g, sxm4)
             if config.gpu_constraint:
                 directives.append(f"#SBATCH --constraint={config.gpu_constraint}")
 
-        # Email notifications
         if config.mail_user:
             directives.append(f"#SBATCH --mail-user={config.mail_user}")
             directives.append(f"#SBATCH --mail-type={config.mail_type}")
@@ -176,7 +159,7 @@ class SlurmJobManager:
             "",
         ]
 
-        # Module loading - always purge first on IDUN
+        # Module loading
         lines.extend(
             [
                 "# Load modules",
@@ -207,7 +190,7 @@ class SlurmJobManager:
         return "\n".join(lines)
 
     def _build_prep_slurm_directives(self, config: ExperimentConfig) -> str:
-        """Build Slurm SBATCH directives for prep job (CPU-only, shorter time)."""
+        """Build Slurm SBATCH directives for prep job, using CPU."""
         log_dir = self.logs_dir / config.experiment_id
         log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -217,7 +200,7 @@ class SlurmJobManager:
         if not config.account:
             raise ValueError("Slurm account is required on IDUN.")
 
-        # Prep job uses CPU partition with modest resources
+        # Prep job uses CPU since it's just preparing data
         directives = [
             f"#SBATCH --account={config.account}",
             "#SBATCH --partition=CPUQ",
@@ -237,7 +220,7 @@ class SlurmJobManager:
         return "\n".join(directives)
 
     def generate_prep_job_script(self, config: ExperimentConfig) -> Path:
-        """Generate a Slurm job script for dataset preparation."""
+        """Generate a Slurm job script for preparing windows."""
         script_path = self.scripts_dir / config.experiment_id / "prep.sh"
         script_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -254,16 +237,13 @@ class SlurmJobManager:
         with open(script_path, "w") as f:
             f.write(script_content)
 
-        os.chmod(script_path, 0o755)
+        os.chmod(script_path, 0o755) # Make the script executable
         logger.info(f"Generated prep script: {script_path}")
         return script_path
 
     def submit_prep_job(self, experiment_id: str) -> Optional[str]:
         """
         Submit the dataset preparation job.
-
-        Returns:
-            Slurm job ID if successful, None otherwise
         """
         config, progress, tasks = self.state_manager.load_experiment(experiment_id)
         script_path = self.generate_prep_job_script(config)
@@ -344,9 +324,6 @@ class SlurmJobManager:
     ) -> Optional[str]:
         """
         Submit a single task to Slurm.
-
-        Returns:
-            Slurm job ID if successful, None otherwise
         """
         config, progress, tasks = self.state_manager.load_experiment(experiment_id)
 
@@ -535,9 +512,7 @@ class SlurmJobManager:
         )
 
         # Step 1: Submit warmup task (single task)
-        warmup_script = self._generate_array_script(
-            config, [warmup_task], [warmup_config], script_name="warmup.sh"
-        )
+        warmup_script = self._generate_array_script(config, [warmup_task], [warmup_config], script_name="warmup.sh")
 
         warmup_cmd = ["sbatch", "--array=0"]
         if dependency_job_ids:
@@ -621,9 +596,8 @@ class SlurmJobManager:
                     )
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to submit parallel job: {e.stderr}")
-                return warmup_job_id  # At least warmup was submitted
+                return warmup_job_id
 
-        # Return parallel job ID as the "main" job
         return parallel_job_id
 
     def _generate_array_script(
@@ -636,7 +610,6 @@ class SlurmJobManager:
         """
         Generate a Slurm array job script for IDUN cluster.
         """
-        import json
 
         # Simplified naming - files are already in experiment folder
         script_path = self.scripts_dir / config.experiment_id / script_name
@@ -653,7 +626,7 @@ class SlurmJobManager:
 
         # Account is REQUIRED on IDUN
         if not config.account:
-            raise ValueError("Slurm account is required on IDUN. " "Use --account to specify your allocation account.")
+            raise ValueError("Slurm account is required on IDUN. ")
 
         slurm_directives = [
             f"#SBATCH --account={config.account}",
@@ -727,15 +700,16 @@ class SlurmJobManager:
 
             states = [s.strip() for s in result.stdout.strip().split("\n") if s.strip()]
             if states:
-                # Get the most recent state (last in list for array jobs)
+                # Get the most recent state
                 slurm_state = states[-1].split("|")[0] if "|" in states[-1] else states[-1]
-                # Handle states like "CANCELLED by 12345"
+                
+                # Handle states such as "CANCELLED by 12345"
                 slurm_state = slurm_state.split()[0]
                 return self.SLURM_STATE_MAP.get(slurm_state, JobState.FAILED)
 
             return None
 
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return None
 
     def update_all_job_statuses(self, experiment_id: str) -> Dict[str, JobState]:
@@ -798,71 +772,3 @@ class SlurmJobManager:
 
         logger.info(f"Cancelled {cancelled} jobs for experiment {experiment_id}")
         return cancelled
-
-    def resubmit_failed_tasks(
-        self,
-        experiment_id: str,
-        window_configs: Dict[str, Dict],
-        max_retries: int = 3,
-        dependency_job_ids: Optional[List[str]] = None,
-    ) -> List[str]:
-        """
-        Resubmit failed/cancelled tasks.
-
-        Args:
-            experiment_id: Experiment identifier
-            window_configs: Window configurations (can be empty if using prep job)
-            max_retries: Maximum retry attempts per task
-            dependency_job_ids: Job IDs to wait for before running
-
-        Returns:
-            List of newly submitted job IDs
-        """
-        config, progress, tasks = self.state_manager.load_experiment(experiment_id)
-        submitted_jobs = []
-
-        failed_tasks = [
-            t
-            for t in tasks
-            if t.state in [JobState.FAILED, JobState.CANCELLED, JobState.TIMEOUT] and t.retry_count < max_retries
-        ]
-
-        for task in failed_tasks:
-            # Use placeholder config if prep job handles preparation
-            if window_configs and task.task_id not in window_configs:
-                logger.warning(f"No window config for task {task.task_id}, skipping")
-                continue
-
-            task_config = window_configs.get(
-                task.task_id,
-                {
-                    "task_id": task.task_id,
-                    "window_idx": task.window_idx,
-                    "seed": task.seed,
-                },
-            )
-
-            # Increment retry count
-            self.state_manager.update_task(
-                experiment_id,
-                task.task_id,
-                state=JobState.PENDING,
-                retry_count=task.retry_count + 1,
-                slurm_job_id=None,
-                error_message=None,
-            )
-
-            # Reload task with updated retry count
-            _, _, updated_tasks = self.state_manager.load_experiment(experiment_id)
-            updated_task = next(t for t in updated_tasks if t.task_id == task.task_id)
-
-            job_id = self.submit_task(
-                experiment_id,
-                updated_task,
-                task_config,
-                dependency_job_ids=dependency_job_ids,
-            )
-            if job_id:
-                submitted_jobs.append(job_id)
-
-        return submitted_jobs

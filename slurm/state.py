@@ -15,21 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 class JobState(str, Enum):
-    """State of a single job/task."""
-
-    PENDING = "pending"  # Not yet submitted
-    SUBMITTED = "submitted"  # Submitted to Slurm
-    RUNNING = "running"  # Currently running
-    COMPLETED = "completed"  # Successfully completed
-    FAILED = "failed"  # Failed execution
-    CANCELLED = "cancelled"  # Cancelled by user
-    TIMEOUT = "timeout"  # Exceeded time limit
-    PAUSED = "paused"  # Paused by user (will not be submitted)
+    PENDING = "pending"
+    SUBMITTED = "submitted"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMEOUT = "timeout"
+    PAUSED = "paused"
 
 
 class ExperimentState(str, Enum):
-    """State of the overall experiment."""
-
     INITIALIZING = "initializing"
     RUNNING = "running"
     PAUSED = "paused"
@@ -95,7 +91,7 @@ class ExperimentConfig:
     ntasks_per_node: int = 1
     nodes: int = 1
 
-    # GPU configuration (IDUN uses --gres=gpu:TYPE:COUNT)
+    # GPU configuration
     gpu_count: int = 0
     gpu_type: Optional[str] = None  # p100, v100, a100, h100
     gpu_constraint: Optional[str] = None  # gpu16g, gpu32g, gpu40g, gpu80g, sxm4
@@ -179,12 +175,6 @@ class ExperimentProgress:
 
 
 class StateManager:
-    """
-    Manages persistent state for Slurm experiments.
-
-    State is stored in JSON format with file locking for concurrent access safety.
-    """
-
     def __init__(self, state_dir: str = "output/slurm_state"):
         self.state_dir = Path(state_dir)
         self.state_dir.mkdir(parents=True, exist_ok=True)
@@ -272,7 +262,7 @@ class StateManager:
         }
 
         with FileLock(lock_path):
-            # Write to temp file first, then rename for atomicity
+            # Write to temp file first, then rename to ensure atomic operation
             temp_path = state_path.with_suffix(".tmp")
             with open(temp_path, "w") as f:
                 json.dump(state_data, f, indent=2)

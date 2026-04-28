@@ -107,56 +107,6 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Don't query Slurm for latest status",
     )
 
-    # === MONITOR command ===
-    monitor_parser = subparsers.add_parser(
-        "monitor",
-        help="Monitor experiment until completion",
-    )
-    monitor_parser.add_argument("experiment_id", help="Experiment identifier")
-    monitor_parser.add_argument(
-        "--interval",
-        type=int,
-        default=60,
-        help="Seconds between status checks (default: 60)",
-    )
-    monitor_parser.add_argument(
-        "--timeout",
-        type=int,
-        help="Maximum seconds to monitor",
-    )
-
-    # === RETRY command ===
-    retry_parser = subparsers.add_parser(
-        "retry",
-        help="Retry failed/cancelled tasks",
-    )
-    retry_parser.add_argument("experiment_id", help="Experiment identifier")
-    retry_parser.add_argument(
-        "--max-retries",
-        type=int,
-        default=3,
-        help="Maximum retry attempts per task (default: 3)",
-    )
-
-    # === PAUSE command ===
-    pause_parser = subparsers.add_parser(
-        "pause",
-        help="Pause pending tasks (running tasks will complete)",
-    )
-    pause_parser.add_argument("experiment_id", help="Experiment identifier")
-
-    # === RESUME command ===
-    resume_parser = subparsers.add_parser(
-        "resume",
-        help="Resume paused tasks",
-    )
-    resume_parser.add_argument("experiment_id", help="Experiment identifier")
-    resume_parser.add_argument(
-        "--submit",
-        action="store_true",
-        help="Submit resumed tasks immediately",
-    )
-
     # === CANCEL command ===
     cancel_parser = subparsers.add_parser(
         "cancel",
@@ -523,54 +473,11 @@ def cmd_status(args, orchestrator: ExperimentOrchestrator):
         )
         print(json.dumps(status, indent=2))
     else:
-        orchestrator.print_status(args.experiment_id, verbose=args.verbose)
-
-
-def cmd_monitor(args, orchestrator: ExperimentOrchestrator):
-    """Handle monitor command."""
-    orchestrator.monitor(
-        args.experiment_id,
-        interval=args.interval,
-        timeout=args.timeout,
-    )
-
-
-def cmd_retry(args, orchestrator: ExperimentOrchestrator):
-    """Handle retry command."""
-    print(f"Submitting prep job and retrying failed tasks for {args.experiment_id}...")
-
-    # Submit prep job first, then retry with dependency
-    prep_job_id = orchestrator.submit_prep_job(args.experiment_id)
-    if not prep_job_id:
-        print("Failed to submit prep job")
-        return
-
-    stats = orchestrator.retry_failed(
-        args.experiment_id,
-        max_retries=args.max_retries,
-        prep_job_id=prep_job_id,
-    )
-
-    print(f"Retried {stats.submitted} tasks, {stats.failed} failed to submit")
-    if stats.job_ids:
-        print(f"Job IDs: {prep_job_id} (prep), {', '.join(stats.job_ids)}")
-
-
-def cmd_pause(args, orchestrator: ExperimentOrchestrator):
-    """Handle pause command."""
-    count = orchestrator.pause_experiment(args.experiment_id)
-    print(f"Paused {count} pending tasks")
-
-
-def cmd_resume(args, orchestrator: ExperimentOrchestrator):
-    """Handle resume command."""
-    count = orchestrator.resume_experiment(args.experiment_id)
-    print(f"Resumed {count} paused tasks")
-
-    if args.submit:
-        print("Submitting prep job and resumed tasks...")
-        stats = orchestrator.submit_with_prep(args.experiment_id)
-        print(f"Submitted {stats.submitted} jobs")
+        orchestrator.print_status(
+            args.experiment_id,
+            verbose=args.verbose,
+            update_from_slurm=not args.no_update,
+        )
 
 
 def cmd_cancel(args, orchestrator: ExperimentOrchestrator):
@@ -703,10 +610,6 @@ def main():
         "create": cmd_create,
         "submit": cmd_submit,
         "status": cmd_status,
-        "monitor": cmd_monitor,
-        "retry": cmd_retry,
-        "pause": cmd_pause,
-        "resume": cmd_resume,
         "cancel": cmd_cancel,
         "list": cmd_list,
         "delete": cmd_delete,
