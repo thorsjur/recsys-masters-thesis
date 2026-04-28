@@ -1,35 +1,11 @@
 import argparse
 from pathlib import Path
+import matplotlib.pyplot as plt
 import numpy as np
 
 from data_analysis.atomic_file import find_item_file, load_item_dataframe
 from data_analysis.plot.common import SEMANTIC_COLORS, get_output_dir
-from data_analysis.plot.field_length_distribution import save_field_length_distribution
-
-
-def describe(values: np.ndarray) -> dict[str, float]:
-    return {
-        "count": float(values.size),
-        "min": float(np.min(values)),
-        "max": float(np.max(values)),
-        "mean": float(np.mean(values)),
-        "std": float(np.std(values, ddof=1)) if values.size > 1 else 0.0,
-        "median": float(np.median(values)),
-        "q1": float(np.percentile(values, 25)),
-        "q3": float(np.percentile(values, 75)),
-    }
-
-
-def print_stats(field: str, stats: dict[str, float]) -> None:
-    print(f"Field: {field}")
-    print(f"Count: {int(stats['count'])}")
-    print(f"Min: {stats['min']:.2f}")
-    print(f"Max: {stats['max']:.2f}")
-    print(f"Mean: {stats['mean']:.2f}")
-    print(f"Std: {stats['std']:.2f}")
-    print(f"Median: {stats['median']:.2f}")
-    print(f"Q1: {stats['q1']:.2f}")
-    print(f"Q3: {stats['q3']:.2f}")
+from data_analysis.plot.field_length_distribution import plot_field_length_distribution
 
 
 def _parse_quantile(value: float | None) -> float | None:
@@ -65,30 +41,37 @@ def run(
         raise ValueError(f"No non-empty values found for field '{field}' in {item_file}")
 
     output_path = Path(output) if output else get_output_dir() / f"{dataset}_{field}_length_distribution.pdf"
-    quantile_value = save_field_length_distribution(
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    quantile_value = plot_field_length_distribution(
         lengths,
+        ax,
         field,
-        output_path,
         dataset_name=dataset,
         max_quantile=max_quantile,
         primary_color=primary_color,
     )
+    fig.tight_layout()
+    fig.savefig(output_path, format="pdf", dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
-    stats = describe(lengths.to_numpy())
     print(f"Dataset: {dataset}")
     print(f"Item file: {item_file}")
     print(f"Output: {output_path}")
     if quantile_value is not None:
         print(f"Plot trimmed at P{max_quantile:g}: {quantile_value:.2f}")
-    print_stats(field, stats)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Plot and summarize text-length distribution for a field in <dataset>.item")
+    parser = argparse.ArgumentParser(
+        description="Plot and summarize text-length distribution for a field in <dataset>.item"
+    )
     parser.add_argument("--dataset", required=True, help="Dataset folder name under data/atomic_files")
     parser.add_argument("--field", required=True, help="Field to analyze (e.g. title, abstract)")
     parser.add_argument("--base-path", default="data/atomic_files", help="Base directory containing dataset folders")
-    parser.add_argument("--output", help="Output PDF path (default: data_analysis/output/<dataset>_<field>_length_distribution.pdf)")
+    parser.add_argument(
+        "--output", help="Output PDF path (default: data_analysis/output/<dataset>_<field>_length_distribution.pdf)"
+    )
     parser.add_argument("--drop-empty", action="store_true", help="Ignore empty field values before computing lengths")
     parser.add_argument(
         "--primary-color",

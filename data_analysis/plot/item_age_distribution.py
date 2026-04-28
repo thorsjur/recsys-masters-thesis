@@ -1,13 +1,12 @@
-
+from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import PLOT_TITLE_SIZE, style_axis, DATASET_NAMING
+from data_analysis.plot.common import style_axis, dataset_plot_title
 from data_analysis.plot.lifetime_common import (
     DEFAULT_QUANTILES,
     add_quantile_lines,
-    build_bucket_histogram,
     set_hour_axis_ticks,
     trim_visible_range,
 )
@@ -25,7 +24,9 @@ def plot_item_age_distribution(
     show_quantiles: bool = True,
     quantiles: tuple[float, ...] = DEFAULT_QUANTILES,
 ) -> None:
-    filtered_df, age_hours = _compute_item_age_hours(df, ignore_single_interaction_items=ignore_single_interaction_items)
+    filtered_df, age_hours = _compute_item_age_hours(
+        df, ignore_single_interaction_items=ignore_single_interaction_items
+    )
     x_values, y_values, quantile_hours, cutoff = _compute_average_item_views_per_bucket(
         filtered_df,
         age_hours,
@@ -37,8 +38,7 @@ def plot_item_age_distribution(
     ylabel = "Average Share of Interactions per Item (%)" if normalize else "Average Number of Interactions per Item"
 
     ax.bar(x_values, y_values, width=bucket_hours, align="edge", color=color, edgecolor="black", alpha=0.85)
-    title = f"{DATASET_NAMING.get(dataset_name, dataset_name)} Article Recency Distribution"
-    style_axis(ax, "Item Age (hours)", ylabel, title)
+    style_axis(ax, "Item Age (hours)", ylabel, dataset_plot_title(dataset_name, "Article Recency Distribution"))
     ax.grid(axis="x", which="major", alpha=0.15)
     if cutoff is not None:
         ax.set_xlim(0, cutoff)
@@ -46,11 +46,14 @@ def plot_item_age_distribution(
 
     if show_quantiles:
         add_quantile_lines(ax, quantile_hours, quantiles=quantiles, x_max=cutoff)
-
+        
+    assert ax.figure is Figure, "figure must be a matplotlib Figure instance"
     ax.figure.tight_layout()
 
 
-def _compute_item_age_hours(df: pd.DataFrame, ignore_single_interaction_items: bool = False) -> tuple[pd.DataFrame, pd.Series]:
+def _compute_item_age_hours(
+    df: pd.DataFrame, ignore_single_interaction_items: bool = False
+) -> tuple[pd.DataFrame, pd.Series]:
     if ignore_single_interaction_items:
         item_counts = df.groupby("item_id")["timestamp"].transform("size")
         df = df[item_counts > 1]

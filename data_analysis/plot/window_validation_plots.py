@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import AXIS_LABEL_SIZE, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE
+from data_analysis.plot.common import AXIS_LABEL_SIZE, LEGEND_FONT_SIZE, PLOT_TITLE_SIZE, dataset_plot_title
 
 COLORS = {
     "train": "#2E86AB",
@@ -19,17 +19,26 @@ COLORS = {
 
 
 def _setup_axis(ax: Axes, xlabel: str, ylabel: str, title: str):
-    """Apply common axis formatting."""
     ax.set_xlabel(xlabel, fontsize=AXIS_LABEL_SIZE)
     ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_SIZE)
     ax.set_title(title, fontsize=PLOT_TITLE_SIZE, fontweight="bold", pad=15)
     ax.grid(True, alpha=0.3, linestyle="--", axis="y")
 
 
+def _resolve_title(dataset_name: str | None, explicit_title: str | None, default_plot_title: str) -> str:
+    if explicit_title:
+        return explicit_title
+    if dataset_name:
+        return dataset_plot_title(dataset_name, default_plot_title)
+    return default_plot_title
+
+
 def plot_window_data_distribution(
-    stats_df: pd.DataFrame, ax: Optional[Axes] = None, title: str = "Data Distribution Across Windows"
+    stats_df: pd.DataFrame,
+    ax: Optional[Axes] = None,
+    dataset_name: str | None = None,
+    title: str | None = None,
 ) -> Axes:
-    """Plot interactions and items counts across windows."""
     if ax is None:
         _, ax = plt.subplots(figsize=(12, 6))
 
@@ -37,7 +46,6 @@ def plot_window_data_distribution(
     x = np.arange(len(windows))
     width = 0.35
 
-    # Interactions as bars
     ax.bar(
         x - width / 2,
         stats_df["train_interactions"],
@@ -57,7 +65,6 @@ def plot_window_data_distribution(
         edgecolor="black",
     )
 
-    # Items as lines on secondary axis
     ax2 = ax.twinx()
     ax2.plot(
         x,
@@ -82,12 +89,16 @@ def plot_window_data_distribution(
         markeredgewidth=1.5,
     )
 
-    _setup_axis(ax, "Window Number", "Number of Interactions", title)
+    _setup_axis(
+        ax,
+        "Window Number",
+        "Number of Interactions",
+        _resolve_title(dataset_name, title, "Window Data Distribution"),
+    )
     ax2.set_ylabel("Number of Items", fontsize=AXIS_LABEL_SIZE)
     ax.set_xticks(x)
     ax.set_xticklabels([str(int(w)) for w in windows])
 
-    # Combined legend
     handles1, labels1 = ax.get_legend_handles_labels()
     handles2, labels2 = ax2.get_legend_handles_labels()
     ax.legend(handles1 + handles2, labels1 + labels2, loc="upper left", fontsize=LEGEND_FONT_SIZE)
@@ -96,9 +107,11 @@ def plot_window_data_distribution(
 
 
 def plot_cold_start_ratios(
-    stats_df: pd.DataFrame, ax: Optional[Axes] = None, title: str = "Cold-Start Ratios Across Windows"
+    stats_df: pd.DataFrame,
+    ax: Optional[Axes] = None,
+    dataset_name: str | None = None,
+    title: str | None = None,
 ) -> Axes:
-    """Plot cold-start ratios (new users/items) across windows."""
     if ax is None:
         _, ax = plt.subplots(figsize=(12, 5))
 
@@ -112,7 +125,6 @@ def plot_cold_start_ratios(
     ax.bar(x - width / 2, user_pct, width, label="New Users %", color=COLORS["users"], alpha=0.8, edgecolor="black")
     ax.bar(x + width / 2, item_pct, width, label="New Items %", color=COLORS["items"], alpha=0.8, edgecolor="black")
 
-    # Mean reference lines
     ax.axhline(
         user_pct.mean(),
         color=COLORS["users"],
@@ -130,11 +142,15 @@ def plot_cold_start_ratios(
         label=f"Mean Items: {item_pct.mean():.1f}%",
     )
 
-    _setup_axis(ax, "Window Number", "Cold-Start Ratio (%)", title)
+    _setup_axis(
+        ax,
+        "Window Number",
+        "Cold-Start Ratio (%)",
+        _resolve_title(dataset_name, title, "Cold-Start Ratios Across Windows"),
+    )
     ax.set_xticks(x)
     ax.set_xticklabels([str(int(w)) for w in windows])
     ax.set_ylim(0, max(user_pct.max(), item_pct.max()) * 1.15)
     ax.legend(loc="upper right", fontsize=LEGEND_FONT_SIZE)
 
     return ax
-

@@ -1,8 +1,8 @@
-
+from matplotlib.figure import Figure
 import pandas as pd
 from matplotlib.axes import Axes
 
-from data_analysis.plot.common import PLOT_TITLE_SIZE, style_axis, DATASET_NAMING
+from data_analysis.plot.common import style_axis, dataset_plot_title
 from data_analysis.plot.lifetime_common import (
     DEFAULT_QUANTILES,
     add_quantile_lines,
@@ -34,7 +34,7 @@ def plot_item_lifetime_distribution(
         ylabel = "Percentage of Items (%)"
 
     ax.bar(x_values, y_values, width=bucket_hours, align="edge", color=color, edgecolor="black", alpha=0.85)
-    style_axis(ax, "Item Lifetime (hours)", ylabel, f"{DATASET_NAMING.get(dataset_name, dataset_name)} Item Lifetime Distribution")
+    style_axis(ax, "Item Lifetime (hours)", ylabel, dataset_plot_title(dataset_name, "Item Lifetime Distribution"))
     ax.grid(axis="x", which="major", alpha=0.15)
     if cutoff is not None:
         ax.set_xlim(0, cutoff)
@@ -43,6 +43,7 @@ def plot_item_lifetime_distribution(
     if show_quantiles:
         add_quantile_lines(ax, lifetime_hours, quantiles=quantiles, x_max=cutoff)
 
+    assert ax.figure is Figure, "figure must be a matplotlib Figure instance"
     ax.figure.tight_layout()
 
 

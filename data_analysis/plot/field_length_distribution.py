@@ -1,20 +1,14 @@
-
-
-from pathlib import Path
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.axes import Axes
 
-from data_analysis.plot.common import LEGEND_FONT_SIZE, SEMANTIC_COLORS, style_axis, DATASET_NAMING
+from data_analysis.plot.common import LEGEND_FONT_SIZE, SEMANTIC_COLORS, style_axis, dataset_plot_title
 
 
-def save_field_length_distribution(
+def plot_field_length_distribution(
     lengths: pd.Series,
+    ax: Axes,
     field: str,
-    output_path: Path,
     dataset_name: str,
     max_quantile: float | None = None,
     primary_color: str = SEMANTIC_COLORS["item_property"],
@@ -28,8 +22,7 @@ def save_field_length_distribution(
         quantile_value = float(np.percentile(lengths, max_quantile))
         visible_lengths = lengths[lengths <= quantile_value]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.hist(visible_lengths, bins=bins, color=primary_color, edgecolor="black", alpha=0.85)
+    ax.hist(visible_lengths, bins=bins, color=primary_color, edgecolor="black", alpha=0.85) # type: ignore
 
     mean_value = float(lengths.mean())
     median_value = float(lengths.median())
@@ -38,15 +31,12 @@ def save_field_length_distribution(
     if quantile_value is not None:
         ax.set_xlim(-0.5, quantile_value + 0.5)
 
-    # ax.set_xlabel("Length (words)", fontsize=AXIS_LABEL_SIZE)
-    # ax.set_ylabel("Count", fontsize=AXIS_LABEL_SIZE)
-    # ax.set_title(f"{field.title()} Length Distribution", fontsize=PLOT_TITLE_SIZE, fontweight="bold")
-    style_axis(ax, xlabel="Length (words)", ylabel="Count", title=f"{DATASET_NAMING.get(dataset_name, dataset_name)} {field.title()} Length Distribution")
+    style_axis(
+        ax,
+        xlabel="Length (words)",
+        ylabel="Count",
+        title=dataset_plot_title(dataset_name, f"{field.title()} Length Distribution"),
+    )
     ax.grid(axis="y", alpha=0.25)
     ax.legend(fontsize=LEGEND_FONT_SIZE)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout()
-    fig.savefig(output_path, format="pdf", dpi=300, bbox_inches="tight")
-    plt.close(fig)
     return quantile_value
