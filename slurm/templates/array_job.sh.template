@@ -25,11 +25,11 @@ echo "=========================================="
 
 ${env_setup}
 
-# Task ID mapping (array index -> task_id in master config)
+# Task ID mapping
 TASK_IDS=(${task_id_list})
 TASK_ID=$${TASK_IDS[$$SLURM_ARRAY_TASK_ID]}
 
-# Read task configuration from master config file (keyed by task_id)
+# Read task configuration from master config file, by task_id
 CONFIG_FILE="${config_file}"
 TASK_CONFIG=$$(python -c "import json; configs=json.load(open('$$CONFIG_FILE')); print(json.dumps(configs['$$TASK_ID']))")
 
@@ -45,7 +45,7 @@ echo "Seed: $$SEED"
 echo "Benchmark filename: $$BENCHMARK_FILENAME"
 echo ""
 
-# Build params - always include benchmark_filename if present
+# Build params: always include benchmark_filename if present
 EXTRA_PARAMS=(${extra_params})
 if [ -n "$$BENCHMARK_FILENAME" ]; then
     EXTRA_PARAMS=("benchmark_filename=$$BENCHMARK_FILENAME" "$${EXTRA_PARAMS[@]}")
@@ -71,7 +71,5 @@ echo "End time: $$(date)"
 echo "Exit code: $$EXIT_CODE"
 echo "=========================================="
 
-echo ""
-echo "To check job efficiency, run: seff $${SLURM_ARRAY_JOB_ID}_$${SLURM_ARRAY_TASK_ID}"
 
 exit $$EXIT_CODE

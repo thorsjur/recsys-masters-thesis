@@ -40,9 +40,5 @@ echo "End time: $$(date)"
 echo "Exit code: $$EXIT_CODE"
 echo "=========================================="
 
-# Print job efficiency hint
-echo ""
-echo "To check job efficiency after completion, run:"
-echo "  seff $$SLURM_JOB_ID"
 
 exit $$EXIT_CODE

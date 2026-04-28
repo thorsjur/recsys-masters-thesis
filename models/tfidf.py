@@ -11,9 +11,7 @@ class TFIDF(NewsEmbeddingRecommender):
     """
 
     def __init__(self, config, dataset):
-        self.max_features = (
-            config["tfidf_max_features"] if "tfidf_max_features" in config else 5000
-        )
+        self.max_features = config["tfidf_max_features"] if "tfidf_max_features" in config else 5000
         self.min_df = config["tfidf_min_df"] if "tfidf_min_df" in config else 2
         super().__init__(config, dataset)
 
@@ -25,10 +23,10 @@ class TFIDF(NewsEmbeddingRecommender):
             min_df=self.min_df,
         )
         tfidf = self.vectorizer.fit_transform(item_texts)
-        
+
         assert isinstance(tfidf, sp.csr_matrix), "TFIDF output is not a sparse matrix"
 
-        self.item_embeddings = torch.from_numpy(tfidf.toarray()).to(self.device) # (n_items, tfidf_dim)
+        self.item_embeddings = torch.from_numpy(tfidf.toarray()).to(self.device)  # (n_items, tfidf_dim)
 
         self.logger.info(
             f"TFIDF built item embeddings: shape={tuple(self.item_embeddings.shape)}, "

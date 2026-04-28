@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _to_json_safe(obj: Any) -> Any:
-    """Recursively convert non-JSON-serializable objects."""
+    """Recursively convert non-JSON-serializable objects for logging."""
     if isinstance(obj, dict):
         return {k: _to_json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -32,7 +32,7 @@ def _to_json_safe(obj: Any) -> Any:
 
 
 class ResultsLogger:
-    """Log experiment results to JSONL format."""
+    """Log experiment results to the JSONL format."""
 
     def __init__(self, results_dir: str = "output/results", results_file: str = "experiments.jsonl"):
         self.results_path = Path(results_dir) / results_file
@@ -67,14 +67,14 @@ class ResultsLogger:
             k: config.get(k)
             for k in ["epochs", "learning_rate", "train_batch_size", "eval_batch_size", "metrics", "topk"]
         }
-        
+
         if test_results:
             entry["test_results"] = _to_json_safe(test_results)
         if valid_results:
             entry["validation_results"] = _to_json_safe(valid_results)
         if training_time is not None:
             entry["training_time_seconds"] = float(training_time)
-            
+
         tmp = {
             "dataset_stats": _to_json_safe(info.get("dataset_stats", {})),
             "runtime": _to_json_safe(info.get("runtime", {})),
@@ -85,12 +85,12 @@ class ResultsLogger:
                 "gpu_stats": _to_json_safe(info.get("gpu_stats", {})),
             },
         }
-        
+
         entry.update({k: v for k, v in tmp.items() if v})
 
         entry["full_config"] = self._serialize_config(config)
 
-        # Include additional info not already extracted
+        # Include additional info not already retrieved
         extra = {
             k: v
             for k, v in info.items()
@@ -116,7 +116,7 @@ class ResultsLogger:
         return entry
 
     def _serialize_config(self, config) -> Any:
-        """Extract config dict, handling RecBole Config objects."""
+        """Get config dict, handling RecBole Config objects."""
         from recbole.config import Config
 
         config_dict = config.final_config_dict if isinstance(config, Config) else dict(config)

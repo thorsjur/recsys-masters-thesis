@@ -11,8 +11,8 @@ class TemporalDatasetBuilder:
     """
     Build train/valid/test splits from hour/day-wise interaction files.
 
-    Enables temporal experiments by combining time-based split files into
-    files that RecBole can consume via benchmark_filename.
+    Helps temporal experiments by combining time based split files (hourly or daily splits) into
+    files that RecBole can consume via benchmark_filename (essentially creating a subdataset, with train/(val)/test).
     """
 
     def __init__(self, data_path: str, dataset_name: str, granularity: str = "day"):

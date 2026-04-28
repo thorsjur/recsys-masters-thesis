@@ -82,7 +82,7 @@ class TemporalConfig:
 
 
 def calculate_windows(total_units: int, config: TemporalConfig) -> List[WindowConfig]:
-    """Calculate all window configurations."""
+    """Calculate window configurations."""
     num_windows = (total_units - config.window_size) // config.stride + 1
     windows = []
 
@@ -158,9 +158,7 @@ def print_window_plan(windows: List[WindowConfig], config: TemporalConfig):
 def print_window_header(w: WindowConfig, num_windows: int, config: TemporalConfig):
     """Log header for a single window execution."""
     valid_info = (
-        f" | Valid: {w.valid_start}-{w.valid_end} ({config.valid_units} {config.unit_name}s)"
-        if w.has_valid
-        else ""
+        f" | Valid: {w.valid_start}-{w.valid_end} ({config.valid_units} {config.unit_name}s)" if w.has_valid else ""
     )
     logger.info(
         f"Window {w.window_idx+1}/{num_windows}: {config.unit_name.capitalize()}s {w.start_unit}-{w.end_unit} | "
@@ -343,8 +341,8 @@ def run_temporal_experiment(
     print_window_plan(windows, config)
 
     # Initialize and validate temporal dataset builder
-    logger.info(f"Running sliding window evaluation...")
-    logger.info(f"Checking for {config.unit_name}-wise split files...")
+    logger.info(f"Running sliding window evaluation")
+    logger.info(f"Checking for {config.unit_name}-wise split files")
 
     builder = TemporalDatasetBuilder(data_path, dataset, granularity=granularity)
     total_units, _ = validate_available_units(builder, total_units, config, dataset, data_path)

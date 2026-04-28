@@ -17,18 +17,15 @@ def install_print_hook(logger: logging.Logger, level: int = logging.INFO):
         end = kwargs.get("end", "\n")
         file = kwargs.get("file", None)
 
-        # Only intercept default prints (or prints explicitly going to stdout)
         if file is None or file is sys.stdout:
             msg = sep.join(str(a) for a in args)
 
-            # If caller uses custom end (rare), include it in the message except final newline
             if end and end != "\n":
                 msg += end
 
             logger.log(level, msg)
             return
 
-        # Anything printed to a different file behaves normally
         original_print(*args, **kwargs)
 
     builtins.print = hooked_print
@@ -43,7 +40,6 @@ def install_excepthook(logger: logging.Logger) -> None:
 
         logger.critical("Uncaught exception", exc_info=(exc_type, exc, tb))
 
-        # Force flush to file/console before exit
         for h in logging.getLogger().handlers:
             try:
                 h.flush()

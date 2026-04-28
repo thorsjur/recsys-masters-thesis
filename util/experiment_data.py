@@ -60,9 +60,10 @@ def extract_temporal_metrics(results: List[Dict[str, Any]], metrics: Optional[Li
         test_results = result.get("test_results", {})
         if any(m not in test_results for m in metrics):
             missing = [m for m in metrics if m not in test_results]
-            raise ValueError(f"Metrics {missing} not found in test_results for window {win_num}, available: {list(test_results.keys())}")
-        
-        
+            raise ValueError(
+                f"Metrics {missing} not found in test_results for window {win_num}, available: {list(test_results.keys())}"
+            )
+
         windows[win_num]["runs"].append({m: test_results.get(m) for m in metrics})
 
     # Calculate per-window statistics
@@ -112,7 +113,7 @@ def extract_temporal_metrics(results: List[Dict[str, Any]], metrics: Optional[Li
 
 
 def compute_temporal_stability_stats(window_data: Dict[int, Dict], metrics: List[str]) -> Dict[str, Dict[str, float]]:
-    """Compute stability statistics (CV, range, etc.) across window means."""
+    """Compute stability statistics across the window means (mean across seeds per window)."""
     stats = {}
     for metric in metrics:
         window_means = [

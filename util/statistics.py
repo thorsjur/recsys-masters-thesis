@@ -5,12 +5,11 @@ Numeric = Union[np.ndarray, List[float]]
 
 
 def _as_array(values: Numeric) -> np.ndarray:
-    """Convert input to numpy array."""
     return np.asarray(values)
 
 
 def coefficient_of_variation(values: Numeric, percent: bool = True) -> float:
-    """Calculate coefficient of variation (CV = std/mean). Returns 0.0 if empty or mean is zero."""
+    """Calculate coefficient of variation."""
     arr = _as_array(values)
     if arr.size == 0:
         return 0.0
@@ -22,19 +21,19 @@ def coefficient_of_variation(values: Numeric, percent: bool = True) -> float:
 
 
 def range_statistic(values: Numeric) -> float:
-    """Calculate range (max - min). Returns 0.0 if empty."""
+    """Calculate range."""
     arr = _as_array(values)
     return 0.0 if arr.size == 0 else float(np.max(arr) - np.min(arr))
 
 
 def mean(values: Numeric) -> float:
-    """Calculate arithmetic mean. Returns 0.0 if empty."""
+    """Calculate arithmetic mean."""
     arr = _as_array(values)
     return 0.0 if arr.size == 0 else float(np.mean(arr))
 
 
 def std(values: Numeric, ddof: int = 0) -> float:
-    """Calculate standard deviation. Returns 0.0 if empty."""
+    """Calculate standard deviation."""
     arr = _as_array(values)
     return 0.0 if arr.size == 0 else float(np.std(arr, ddof=ddof))
 

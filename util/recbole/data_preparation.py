@@ -8,6 +8,10 @@ from recbole.utils import set_color
 from dataloaders.train_impression_data_loader import TrainImpressionDataLoader
 from dataloaders.eval_impression_data_loader import EvalImpressionDataLoader, TestImpressionDataLoader, ValImpressionDataLoader
 
+# ---
+# DISCLAIMER:
+# All of these functions are adapted from RecBole's data.utils to support custom dataloaders and datasets.
+
 def create_dataset(config):
     """
     Adapted create_dataset function to support custom datasets.
