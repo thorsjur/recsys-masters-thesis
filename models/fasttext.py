@@ -21,5 +21,6 @@ class FastText(NewsEmbeddingRecommender):
     def _build_item_embeddings(self, dataset):
         """Build item embeddings by averaging FastText token vectors."""
         self.item_embeddings = self._build_token_provider_item_embeddings(
-            dataset, dim=self.fasttext_dim,
+            dataset,
+            dim=self.fasttext_dim,
         )

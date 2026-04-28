@@ -4,6 +4,8 @@ from typing import Any, Optional
 import numpy as np
 import torch
 import logging
+
+# Suppress verbose logging from smart_open (used by gensim for loading FastText vectors)
 logging.getLogger("smart_open").setLevel(logging.WARNING)
 
 from models.embeddings.token_embedding_provider import (
@@ -11,15 +13,13 @@ from models.embeddings.token_embedding_provider import (
     register_token_provider,
 )
 
-# Module-level cache so that multiple provider instances (e.g. one per
-# text field) share a single copy of the heavyweight keyed-vectors.
+# Module-level cache so that multiple provider instances can share the same loaded FastText vectors without reloading from disk.
 _KV_CACHE: dict[str, Any] = {}
 
 
 def _load_keyed_vectors(bin_path: str, cache_path: Optional[str]) -> Any:
     """Load (and optionally cache) FastText keyed vectors."""
 
-    
     key = cache_path or bin_path
     if key in _KV_CACHE:
         return _KV_CACHE[key]
@@ -47,12 +47,7 @@ def _load_keyed_vectors(bin_path: str, cache_path: Optional[str]) -> Any:
 
 @register_token_provider("fasttext")
 class FastTextProvider(BaseTokenEmbeddingProvider):
-    """Build a token embedding matrix from a pre-trained FastText model.
-
-    FastText can generate vectors for out-of-vocabulary words via subword
-    (character n-gram) information, so coverage is typically much higher
-    than with GloVe-style static lookup tables.
-    """
+    """Build a token embedding matrix from a pre-trained FastText model."""
 
     def get_embedding_matrix(
         self,
@@ -62,9 +57,7 @@ class FastTextProvider(BaseTokenEmbeddingProvider):
     ) -> torch.Tensor:
         logger = getLogger()
 
-        bin_path = os.path.expanduser(
-            self.config.get("embedding_path", "~/fasttext/cc.en.300.bin")
-        )
+        bin_path = os.path.expanduser(self.config.get("embedding_path", "~/fasttext/cc.en.300.bin"))
         cache_path_cfg = self.config.get("fasttext_cache", f"~/fasttext/cache/{bin_path.split('/')[-1]}.kv")
         cache_path = os.path.expanduser(cache_path_cfg) if cache_path_cfg else None
 
@@ -80,7 +73,7 @@ class FastTextProvider(BaseTokenEmbeddingProvider):
             f"dim={self.dim}, vocab_size={vocab_size}, lower={lower})"
         )
 
-        # Initialise: random for truly-missing tokens, zeros for padding
+        # we initialize the embedding matrix with random normal values, and set padding to 0
         emb = torch.empty((vocab_size, self.dim), dtype=dtype)
         torch.nn.init.normal_(emb, mean=0.0, std=init_std)
 
@@ -111,10 +104,7 @@ class FastTextProvider(BaseTokenEmbeddingProvider):
 
         target = vocab_size - (1 if 0 <= padding_idx < vocab_size else 0)
         coverage = (found / max(1, target)) * 100.0
-        logger.info(
-            f"FastText coverage: {found}/{target} tokens ({coverage:.2f}%). "
-            f"OOV: {target - found}."
-        )
+        logger.info(f"FastText coverage: {found}/{target} tokens ({coverage:.2f}%). " f"OOV: {target - found}.")
 
         if oov_samples:
             logger.info(f"Example OOV tokens (first {len(oov_samples)}): {oov_samples}")

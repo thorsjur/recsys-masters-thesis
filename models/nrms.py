@@ -37,9 +37,7 @@ class NRMS(SequentialRecommender):
         self.pos_index_field = config.get("pos_index_field", "pos_index")
 
         # Sentence-level embedding mode
-        self.use_sentence_embeddings = (
-            config.get("sentence_embedding_source", None) is not None
-        )
+        self.use_sentence_embeddings = config.get("sentence_embedding_source", None) is not None
 
         if self.use_sentence_embeddings:
             self._init_sentence_mode(config, dataset)
@@ -59,7 +57,7 @@ class NRMS(SequentialRecommender):
         self.hidden_size = self.user_encoder.out_dim
 
     def _init_token_mode(self, config, dataset):
-        """Default: token-level word embeddings + NRMS title encoder."""
+        """Default is token-level word embeddings + NRMS title encoder, following the original paper."""
         provider = build_token_embedding_provider(
             config=config,
             dataset=dataset,
@@ -99,39 +97,32 @@ class NRMS(SequentialRecommender):
 
         if title_tokens.dim() != 2:
             raise ValueError(
-                f"Expected '{self.title_field}' to be 2-D (n_items, seq_len), "
-                f"got {title_tokens.dim()}-D"
+                f"Expected '{self.title_field}' to be 2D (n_items, seq_len), " f"got {title_tokens.dim()}-D"
             )
         self.title_len = title_tokens.size(1)
         self.register_buffer("item_title_tokens", title_tokens)
 
-        pad_title = self.item_title_tokens[self.padding_idx]
-        if (pad_title != self.padding_idx).any():
-            print("Warning: item_title_tokens[padding_idx] is not all padding tokens.")
-
     def _init_sentence_mode(self, config, dataset):
-        """Sentence embedding mode: pre-compute dense item vectors via a
-        sentence-level encoder"""
+        """In sentence embedding mode we precompute item vectors using a
+        sentence encoder"""
         from models.embeddings.sentence_embedding_provider import build_sentence_embedding_provider
 
         sent_dim = int(config.get("sentence_embedding_dim", 384))
         provider = build_sentence_embedding_provider(config, dim=sent_dim)
 
-        # Extract raw text for each item from RecBole's tokenised fields
         abstract_field = config.get("abstract_field", "abstract")
         use_abstract = bool(config.get("use_abstract", False))
 
         n_items = dataset.item_num
         item_texts = [
-            self._get_item_text(dataset, i, abstract_field if use_abstract else None)
-            for i in range(n_items)
+            self._get_item_text(dataset, i, abstract_field if use_abstract else None) for i in range(n_items)
         ]
 
         logger.info("Encoding %d items with sentence embeddings …", n_items)
         sent_embeddings = provider.encode(item_texts, show_progress=True)
         self.register_buffer("item_sentence_embeddings", sent_embeddings)
 
-        # Project sentence dim to news_dim if they differ
+        # Project sentence dim to news_dim if they do not match
         news_dim = self.nb_head * self.size_per_head
         if sent_dim != news_dim:
             self.sent_projection = nn.Linear(sent_dim, news_dim)
@@ -139,7 +130,10 @@ class NRMS(SequentialRecommender):
             self.sent_projection = nn.Identity()
 
     def _get_item_text(
-        self, dataset, item_idx: int, abstract_field: str | None = None,
+        self,
+        dataset,
+        item_idx: int,
+        abstract_field: str | None = None,
     ) -> str:
         """Reconstruct item text from RecBole's tokenised feature fields."""
         item_feat = dataset.get_item_feature()
@@ -151,11 +145,8 @@ class NRMS(SequentialRecommender):
             ids = item_feat[field][item_idx]
             if torch.is_tensor(ids):
                 ids = ids.cpu().numpy()
-            tokens.extend(
-                dataset.id2token(field, [int(t)])[0] for t in ids if int(t) != 0
-            )
+            tokens.extend(dataset.id2token(field, [int(t)])[0] for t in ids if int(t) != 0)
         return " ".join(tokens)
-
 
     def _title_mask(self, token_ids: torch.Tensor) -> torch.Tensor:
         return token_ids != self.padding_idx
@@ -166,18 +157,15 @@ class NRMS(SequentialRecommender):
         returns:  (B, D) or (B, K, D) or (B, L, D)
         """
         if self.use_sentence_embeddings:
-            vecs = self.sent_projection(
-                self.item_sentence_embeddings[item_ids.reshape(-1)]
-            )
+            vecs = self.sent_projection(self.item_sentence_embeddings[item_ids.reshape(-1)])
             return vecs.view(*item_ids.shape, -1)
 
-        # Default: token-level encoding
         flat = item_ids.reshape(-1)
         uniq, inv = torch.unique(flat, return_inverse=True)
 
         titles = self.item_title_tokens[uniq]
         mask = titles != self.padding_idx
-        
+
         # Encode unique items only once
         uniq_vec = self.news_encoder.encode(titles, mask)  # (U, D)
 
@@ -189,7 +177,7 @@ class NRMS(SequentialRecommender):
         item_seq: (B, T)
         """
         seq_mask = item_seq != self.padding_idx
-        
+
         seq_vecs = self.encode_items(item_seq)  # (B, T, D)
         u = self.user_encoder.encode(seq_vecs, seq_mask)  # (B, D)
         return u
@@ -215,15 +203,15 @@ class NRMS(SequentialRecommender):
         """
         Paper training: pseudo (K+1)-way classification with shuffled candidates.
         """
-        
+
         item_seq = interaction[self.ITEM_SEQ]  # (B, T)
         cand_item_ids = interaction[self.cand_field]  # (B, 1+K)
-            
+
         pos_index = interaction[self.pos_index_field].long()  # (B,)
         u = self.encode_user(item_seq)
         cand_vecs = self.encode_items(cand_item_ids)
         logits = self.score_user_candidates(u, cand_vecs)
-        
+
         return F.cross_entropy(logits, pos_index)
 
     def predict(self, interaction) -> torch.Tensor:
@@ -231,11 +219,12 @@ class NRMS(SequentialRecommender):
         item_id = interaction[self.ITEM_ID]
         u = self.encode_user(item_seq)  # (B, D)
         r = self.encode_items(item_id)  # (B, D)
-        
+
+        # If using cosine similarity, then we normalize vectors
         if self.similarity == "cosine":
             u = F.normalize(u, dim=-1)
             r = F.normalize(r, dim=-1)
-        
+
         return torch.sum(u * r, dim=-1)
 
     def full_sort_predict(self, interaction) -> torch.Tensor:

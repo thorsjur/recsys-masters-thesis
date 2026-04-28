@@ -5,6 +5,8 @@ from recbole.utils import InputType, ModelType
 
 
 class Random(GeneralRecommender):
+    """Random recommender that gives uniform random scores for all candidate news items."""
+
     input_type = InputType.POINTWISE
     type = ModelType.TRADITIONAL
 

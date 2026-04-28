@@ -20,5 +20,6 @@ class GLoVe(NewsEmbeddingRecommender):
     def _build_item_embeddings(self, dataset):
         """Build item embeddings by averaging GLoVe token vectors."""
         self.item_embeddings = self._build_token_provider_item_embeddings(
-            dataset, dim=self.embedding_dim,
+            dataset,
+            dim=self.embedding_dim,
         )

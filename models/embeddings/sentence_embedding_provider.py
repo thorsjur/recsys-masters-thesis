@@ -10,9 +10,11 @@ _SENTENCE_PROVIDER_REGISTRY: Dict[str, type["BaseSentenceEmbeddingProvider"]] = 
 
 def register_sentence_provider(name: str):
     """Register a sentence-level embedding provider by name."""
+
     def deco(cls):
         _SENTENCE_PROVIDER_REGISTRY[name] = cls
         return cls
+
     return deco
 
 
@@ -23,11 +25,6 @@ def build_sentence_embedding_provider(
 ) -> "BaseSentenceEmbeddingProvider":
     """
     Build a sentence embedding provider from config.
-
-    Expected config keys
-    --------------------
-    sentence_embedding_source : str
-        Name used in ``@register_sentence_provider``.
     """
     src = config["sentence_embedding_source"]
     assert src is not None, "sentence_embedding_source must be specified in config"
@@ -35,8 +32,7 @@ def build_sentence_embedding_provider(
     cls = _SENTENCE_PROVIDER_REGISTRY.get(src)
     if cls is None:
         raise KeyError(
-            f"Unknown sentence_embedding_source='{src}'. "
-            f"Available: {list(_SENTENCE_PROVIDER_REGISTRY)}"
+            f"Unknown sentence_embedding_source='{src}'. " f"Available: {list(_SENTENCE_PROVIDER_REGISTRY)}"
         )
     return cls(config=config, dim=dim, **kwargs)
 
@@ -46,9 +42,10 @@ class BaseSentenceEmbeddingProvider:
     """
     Base class for sentence-level embedding providers.
 
-    Unlike token providers (which map token IDs -> vectors),
-    sentence providers map arbitrary *strings* to dense vectors.
+    Unlike token providers,
+    sentence providers map arbitrary strings/sentences to a embedding space.
     """
+
     config: Config
     dim: int
 
@@ -61,25 +58,9 @@ class BaseSentenceEmbeddingProvider:
     ) -> torch.Tensor:
         """
         Encode a sequence of sentences into a (N, dim) tensor.
-
-        Parameters
-        ----------
-        sentences : sequence of str
-            Raw text strings to encode.
-        batch_size : int
-            Batch size for encoding (provider may ignore if not applicable).
-        show_progress : bool
-            Whether to show a progress bar during encoding.
-        dtype : torch.dtype
-            Desired dtype of the returned tensor.
-
-        Returns
-        -------
-        torch.Tensor
-            Shape ``(len(sentences), self.dim)``.
         """
         raise NotImplementedError
 
     def encode_single(self, sentence: str, dtype: torch.dtype = torch.float32) -> torch.Tensor:
-        """Convenience wrapper for a single sentence. Returns shape ``(dim,)``."""
+        """Convenience wrapper for a single sentence."""
         return self.encode([sentence], dtype=dtype).squeeze(0)

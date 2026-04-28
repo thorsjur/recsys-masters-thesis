@@ -38,11 +38,11 @@ class NRMSUserEncoder(BaseUserEncoder):
         returns: (B, out_dim)
         """
         mask = None if seq_mask is None else seq_mask.bool()
-        
+
         # (B, T, out_dim)
         h = self.selfatt(seq_vectors, mask=mask)
         h = self.selfatt_drop(h)
-        
+
         # (B, out_dim)
         u = self.pool(h, mask=mask)
         return u

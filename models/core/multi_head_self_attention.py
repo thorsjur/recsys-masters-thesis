@@ -15,8 +15,8 @@ def _masked_fill(scores: torch.Tensor, mask: Optional[torch.Tensor], fill: float
 class MultiHeadSelfAttention(nn.Module):
     """
     While not the exact same implementation as described in the NRMS paper, it follows the
-    NRMS source code more closely than the BilinearMultiHeadSelfAttention. 
-    
+    NRMS source code more closely than the BilinearMultiHeadSelfAttention.
+
     I am pretty sure this is what the authors used in practice, as the current implementation
     with the QKV-style matrices give a parameter count much closer to what is reported in the paper.
     531K params against the reported 530K, while with the bilinear version it is 2.7M params.

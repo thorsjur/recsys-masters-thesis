@@ -16,7 +16,7 @@ class BilinearMultiHeadSelfAttention(nn.Module):
     """
     Multi Head Self Attention as described by the NRMS paper.
     Initialized following the paper's code (notebook): https://github.com/wuch15/EMNLP2019-NRMS/blob/master/Baseline-NRMS.ipynb
-    
+
     Note that this slightly deviates from the standard multi-head attention mechanism with Q, K and V matrices
     (used in the NRMS code).
 
@@ -30,7 +30,7 @@ class BilinearMultiHeadSelfAttention(nn.Module):
         self.head_dim = head_dim
         self.output_dim = num_heads * head_dim
 
-        self.Q = nn.Parameter(torch.empty(num_heads, input_dim, input_dim)) # (H, D, D)
+        self.Q = nn.Parameter(torch.empty(num_heads, input_dim, input_dim))  # (H, D, D)
         self.V = nn.Parameter(torch.empty(num_heads, head_dim, input_dim))
 
         # Initialized following the NRMS notebook impl.
@@ -44,19 +44,19 @@ class BilinearMultiHeadSelfAttention(nn.Module):
 
         returns: (B, L, H*head_dim)
         """
-        
+
         B, L, D = E.shape
         if D != self.input_dim:
             raise ValueError(f"Expected input_dim={self.input_dim}, got {D}")
 
         # Compute scores for each head and batch
-        scores = torch.einsum("bid,hde,bje->bhij", E, self.Q, E) # (B, H, L, L)
+        scores = torch.einsum("bid,hde,bje->bhij", E, self.Q, E)  # (B, H, L, L)
 
         # Mask keys
         if mask is not None:
             key_mask = mask[:, None, None, :].expand_as(scores)  # (B, H, L, L)
             scores = _masked_fill(scores, key_mask, -1e9 if scores.dtype == torch.float32 else -1e4)
-            
+
         # Softmax to get attention weights alpha
         alpha = F.softmax(scores, dim=-1)  # (B, H, L, L)
 

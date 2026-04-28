@@ -1,5 +1,3 @@
-import hashlib
-import io
 from logging import getLogger
 import os
 import torch
@@ -56,7 +54,7 @@ class GloveProvider(BaseTokenEmbeddingProvider):
             f"lower={lower}, dtype={dtype}, init_std={init_std})"
         )
 
-        # Initialize: random for OOV, keep padding row zeros
+        # we initialize the embedding matrix with random normal values, and set padding to 0
         emb = torch.empty((vocab_size, self.dim), dtype=dtype)
         torch.nn.init.normal_(emb, mean=0.0, std=init_std)
 
@@ -64,10 +62,10 @@ class GloveProvider(BaseTokenEmbeddingProvider):
             emb[padding_idx].zero_()
 
         found = 0
-        # Early stop when we've found all non-padding vocab tokens
+        # Early stop if we find all tokens (except padding)
         target_found = vocab_size - (1 if 0 <= padding_idx < vocab_size else 0)
 
-        # Stream file, parse line-by-line
+        # Parse line by line to save some memory
         with open(path, "r", encoding=encoding, errors="replace") as f:
             for lineno, line in enumerate(f, start=1):
                 line = line.strip()
@@ -78,10 +76,8 @@ class GloveProvider(BaseTokenEmbeddingProvider):
                 if lineno == 1:
                     parts0 = line.split()
                     if len(parts0) == 2 and parts0[0].isdigit() and parts0[1].isdigit():
-                        # Header detected; skip it
                         continue
 
-                # Split once: token + float string
                 try:
                     word, rest = line.split(" ", 1)
                 except ValueError:
@@ -94,7 +90,6 @@ class GloveProvider(BaseTokenEmbeddingProvider):
                 if idx is None:
                     continue
 
-                # Parse floats efficiently
                 vec_np = np.fromstring(rest, sep=" ", dtype=np.float32)
                 if vec_np.shape[0] != self.dim:
                     logger.warning(

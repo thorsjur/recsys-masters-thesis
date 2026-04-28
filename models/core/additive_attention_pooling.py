@@ -1,5 +1,3 @@
-
-
 from typing import Optional
 import torch
 import torch.nn as nn
@@ -21,7 +19,7 @@ class AdditiveAttentionPooling(nn.Module):
         """
         E: (B, L, D)
         mask: (B, L) bool
-        
+
         returns: (B, D)
         """
         h = torch.tanh(self.proj(E))  # (B, L, att_dim)

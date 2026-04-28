@@ -24,7 +24,7 @@ def _load_model(
     model_kwargs: Optional[Dict] = None,
     tokenizer_kwargs: Optional[Dict] = None,
 ):
-    """Return a ``SentenceTransformer`` instance."""
+    """Return a SentenceTransformer instance."""
     from sentence_transformers import SentenceTransformer
 
     logger.info("Loading sentence-transformer model '%s' …", model_name)
@@ -40,15 +40,14 @@ def _load_model(
 
 
 def _cache_key(sentence: str, model_name: str, normalize: bool) -> str:
-    """Deterministic hash key for one (sentence, model, normalize) combo."""
+    """Deterministic hash key for one (sentence, model, normalize) combiination."""
     raw = f"{model_name}|{normalize}|{sentence}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 class _EmbeddingDiskCache:
     """
-    A thin wrapper around ``shelve`` that stores sentence embeddings as numpy
-    arrays on disk.  Thread-safe for reads; a lock guards writes.
+    Cache for sentence embeddings on disk, to avoid recomputing them across runs.
     """
 
     def __init__(self, cache_dir: str | os.PathLike, model_name: str, normalize: bool):
@@ -62,16 +61,7 @@ class _EmbeddingDiskCache:
 
     def lookup(self, sentences: Sequence[str]) -> Tuple[List[int], List[str], Dict[int, np.ndarray]]:
         """
-        Partition *sentences* into hits and misses.
-
-        Returns
-        -------
-        miss_indices : list[int]
-            Positions in *sentences* that are NOT in the cache.
-        miss_sentences : list[str]
-            The corresponding text strings.
-        hits : dict[int, np.ndarray]
-            ``{position: cached_vector}`` for every cache hit.
+        Split sentences into hits and misses.
         """
         miss_idx: List[int] = []
         miss_sent: List[str] = []
@@ -88,14 +78,14 @@ class _EmbeddingDiskCache:
                         miss_idx.append(i)
                         miss_sent.append(s)
         except Exception:
-            # DB doesn't exist yet
+            # DB probably doesn't exist yet
             miss_idx = list(range(len(sentences)))
             miss_sent = list(sentences)
 
         return miss_idx, miss_sent, hits
 
     def store(self, sentences: Sequence[str], vectors: np.ndarray) -> None:
-        """Persist embeddings for *sentences* (same order as *vectors* rows)."""
+        """Persist embeddings for sentences."""
         with self._lock:
             with shelve.open(self._db_path, flag="c") as db:
                 for s, vec in zip(sentences, vectors):
@@ -103,13 +93,12 @@ class _EmbeddingDiskCache:
                     db[key] = vec
 
 
-
 @register_sentence_provider("sentence_transformer")
 @register_sentence_provider("sbert")
 @dataclass
 class SentenceTransformerProvider(BaseSentenceEmbeddingProvider):
-    """Provider backed by the ``sentence-transformers`` library.
-    Works with any model available via ``SentenceTransformer(model_name)``.
+    """
+    Works with any model available via `SentenceTransformer(model_name)` (see HuggingFace for other models).
     """
 
     _model: Optional["SentenceTransformer"] = field(default=None, init=False, repr=False)  # type: ignore[type-arg]
@@ -172,9 +161,6 @@ class SentenceTransformerProvider(BaseSentenceEmbeddingProvider):
     ) -> torch.Tensor:
         """
         Encode sentences to (N, dim) tensor.
-
-        Cached embeddings are returned directly; only cache-misses are
-        forwarded to the model.
         """
         self._setup()
         sentences = self._apply_instruction(sentences)
@@ -192,12 +178,7 @@ class SentenceTransformerProvider(BaseSentenceEmbeddingProvider):
             miss_sent = list(sentences)
             hits = {}
 
-        logger.info(
-            "Sentence encode: %d total, %d cached, %d to compute",
-            n,
-            len(hits),
-            len(miss_sent),
-        )
+        logger.info(f"Sentence encode: {n} total, {len(hits)} cached, {len(miss_sent)} to compute")
 
         # model inference for misses
         if miss_sent:
@@ -225,7 +206,7 @@ class SentenceTransformerProvider(BaseSentenceEmbeddingProvider):
         show_progress: bool,
     ) -> np.ndarray:
         assert self._model is not None, "_encode_batch called before model setup"
-        
+
         """Run the sentence-transformers model and return numpy array."""
         with torch.no_grad():
             vecs = self._model.encode(
