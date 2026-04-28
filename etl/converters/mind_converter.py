@@ -1,29 +1,30 @@
 from typing import Dict
 from etl.converters.base_converter import BaseAtomicConverter
 
+
 class MINDAtomicConverter(BaseAtomicConverter):
-    
+
     def __init__(self, config, df_inter_loaded=None, df_item_loaded=None):
         super().__init__(config, df_inter_loaded, df_item_loaded)
 
     @property
     def inter_fields(self) -> Dict[str, str]:
         return {
-            'user_id': 'user_id:token',
-            'item_id': 'item_id:token',
-            'label': 'label:float',
-            'timestamp': 'timestamp:float',
-            'impression_id': 'impression_id:token'
+            "user_id": "user_id:token",
+            "item_id": "item_id:token",
+            "label": "label:float",
+            "timestamp": "timestamp:float",
+            "impression_id": "impression_id:token",
         }
 
     @property
     def item_fields(self) -> Dict[str, str]:
         return {
-            'item_id': 'item_id:token',
-            'category': 'category:token',
-            'sub_category': 'sub_category:token',
-            'title': 'title:token_seq',
-            'abstract': 'abstract:token_seq'
+            "item_id": "item_id:token",
+            "category": "category:token",
+            "sub_category": "sub_category:token",
+            "title": "title:token_seq",
+            "abstract": "abstract:token_seq",
         }
 
     def load_inter_df(self):

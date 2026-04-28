@@ -19,7 +19,7 @@ def _count_file_lines(filepath: str) -> int:
 
 class MINDBaseDataLoader(AbstractDataLoader, ABC):
     """
-    Common base for MIND loaders.
+    Common base for the MIND loaders.
     """
 
     CHUNK_SIZE = 50_000
@@ -28,7 +28,7 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         super().__init__(config)
 
     def _get_data_paths(self) -> List[str]:
-        """Get list of paths to load data from."""
+        """Get a list of paths to load data from."""
         subfolders = self.config.options.get("subfolders")
 
         if subfolders:
@@ -41,7 +41,7 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         return [self.config.raw_path]
 
     def _load_news_file(self, path: str) -> pd.DataFrame:
-        """Load news.tsv from a single directory."""
+        """Load news.tsv from a directory."""
         news_path = os.path.join(path, "news.tsv")
         return pd.read_csv(
             news_path,
@@ -54,13 +54,13 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
     @abstractmethod
     def _process_behaviors_chunk(self, chunk: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform a behaviors chunk into interactions DataFrame.
+        Transform behaviors dataframe into interactions DataFrame.
         """
         raise NotImplementedError("Subclasses must implement _process_behaviors_chunk().")
 
     def _finalize_interactions_df(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Enforce user_id and item_id as category for memory efficiency.
+        Set user_id and item_id as category for memory efficiency.
         """
         if "user_id" in df.columns:
             df["user_id"] = df["user_id"].astype("category")
@@ -74,7 +74,7 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         impression_id_offset: int = 0,
         sampled_users: Optional[Set] = None,
     ) -> Tuple[pd.DataFrame, int]:
-        """Load and process behaviors.tsv from a single directory."""
+        """Load and process behaviors.tsv from a directory."""
         behaviors_path = os.path.join(path, "behaviors.tsv")
         folder_name = os.path.basename(path)
 
@@ -119,8 +119,7 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
                 missing = required_cols - set(processed.columns)
                 if missing:
                     raise ValueError(
-                        f"{self.__class__.__name__}._process_behaviors_chunk() must return columns "
-                        f"{sorted(required_cols)}; missing {sorted(missing)}."
+                        f"required {sorted(required_cols)}, missing {sorted(missing)}."
                     )
 
                 if impression_id_offset > 0:
@@ -144,25 +143,24 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         del chunks
 
         if sampled_users is not None:
-            print(f"  [{folder_name}] Early user filter: kept {rows_processed - rows_filtered:,} / {rows_processed:,} rows")
+            print(
+                f"  [{folder_name}] Early user filter: kept {rows_processed - rows_filtered:,} / {rows_processed:,} rows"
+            )
 
         result = self._finalize_interactions_df(result)
         return result, rows_processed
 
-    # ------------------------------------------------------------------
-    # Early user filtering (delegates to BaseEarlyPreprocessor pipeline)
-    # ------------------------------------------------------------------
-
     def _gather_all_user_ids(self, data_paths: List[str]) -> np.ndarray:
-        """Read only the ``user_id`` column from every behaviours file
-        and return the deduplicated union as a numpy array.
-        """
         all_users: set = set()
         for path in data_paths:
             bp = os.path.join(path, "behaviors.tsv")
             if os.path.isfile(bp):
                 uids = pd.read_csv(
-                    bp, sep="\t", header=None, usecols=[1], names=["user_id"],
+                    bp,
+                    sep="\t",
+                    header=None,
+                    usecols=[1],
+                    names=["user_id"],
                 )["user_id"].unique()
                 all_users.update(uids)
         return np.array(list(all_users))
@@ -182,7 +180,7 @@ class MINDBaseDataLoader(AbstractDataLoader, ABC):
         # Behaviors
         print("Loading behaviors files...")
 
-        # Determine users to keep (None = all) via early preprocessors
+        # Determine users to keep (None = all) with the early preprocessors
         all_user_ids = self._gather_all_user_ids(data_paths)
         sampled_users = self._resolve_early_user_filter(all_user_ids)
 

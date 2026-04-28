@@ -12,7 +12,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
     """
     Common base for EB-NeRD loaders.
 
-    Reads parquet files
+    Reads thye parquet files as provided by the EB-NeRD authors.
     """
 
     CHUNK_SIZE = 50_000
@@ -46,9 +46,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         """Load history.parquet from a single data-split directory.
 
         Each user's article list is sorted chronologically by
-        impression_time_fixed.  Truncation to max_history_items
-        is deferred to :meth:`_augment_user_histories` so that clicks
-        from behaviors.parquet can be included first.
+        impression_time_fixed.
         """
         history_path = os.path.join(path, "history.parquet")
         if not os.path.isfile(history_path):
@@ -65,7 +63,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         if sampled_users is not None:
             before = len(df)
             df = df[df["user_id"].isin(sampled_users)].reset_index(drop=True)
-            print(f"  [history] Filtered to sampled users: {before:,} → {len(df):,} rows")
+            print(f"[history] Filtered to sampled users: {before:,} → {len(df):,} rows")
 
         if has_times:
             print("Sorting user histories chronologically...")
@@ -93,8 +91,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         """Augment each impression's history with clicked items from earlier impressions.
 
         The combined list is then truncated to the last
-        max_history_items entries (most-recent) when that config
-        option is set.
+        max_history_items entries (most-recent) when the config option is set.
         """
         print("Augmenting user histories with prior clicks from behaviors...")
 
@@ -112,7 +109,6 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         df.sort_values(["user_id", "_sort_ts", "impression_id"], inplace=True, kind="stable")
         df.reset_index(drop=True, inplace=True)
 
-        # Pre-extract columns for fast row-level iteration.
         user_ids = df["user_id"].to_numpy()
         clicked_lists = df["article_ids_clicked"].tolist()
         base_histories = df["article_id_fixed"].tolist() if has_history else None
@@ -164,13 +160,13 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
     @abstractmethod
     def _process_behaviors_chunk(self, chunk: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform a behaviors chunk into interactions DataFrame.
+        Transform a behaviors chunk into a interactions DataFrame.
         """
         raise NotImplementedError("Subclasses must implement _process_behaviors_chunk().")
 
     def _finalize_interactions_df(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Enforce user_id and item_id as category for memory efficiency.
+        Set user_id and item_id as categories
         """
         if "user_id" in df.columns:
             df["user_id"] = df["user_id"].astype("category")
@@ -184,17 +180,17 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         impression_id_offset: int = 0,
         sampled_users: Optional[Set] = None,
     ) -> Tuple[pd.DataFrame, int]:
-        """Load and process behaviors.parquet (+ history.parquet) from a single directory."""
+        """Load and process behaviors.parquet (+ history.parquet) from a directory."""
         behaviors_path = os.path.join(path, "behaviors.parquet")
         folder_name = os.path.basename(path)
 
         df_behaviors = pd.read_parquet(behaviors_path)
 
-        # Early user filtering (before expensive history augmentation)
+        # Early user filtering, helps prevent OOM errors when augmenting interactions
         if sampled_users is not None:
             before = len(df_behaviors)
             df_behaviors = df_behaviors[df_behaviors["user_id"].isin(sampled_users)].reset_index(drop=True)
-            print(f"  [{folder_name}] Early user filter: {before:,} → {len(df_behaviors):,} behaviours")
+            print(f"[{folder_name}] Early user filter: {before:,} → {len(df_behaviors):,} behaviours")
 
         # Merge user click history from separate history file
         history_df = self._load_history_file(path, sampled_users)
@@ -228,8 +224,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
                 missing = required_cols - set(processed.columns)
                 if missing:
                     raise ValueError(
-                        f"{self.__class__.__name__}._process_behaviors_chunk() must return columns "
-                        f"{sorted(required_cols)}; missing {sorted(missing)}."
+                        f"{sorted(required_cols)}. missing columns {sorted(missing)}."
                     )
 
                 if impression_id_offset > 0:
@@ -258,9 +253,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         return result, total_rows
 
     def _gather_all_user_ids(self, data_paths: List[str]) -> np.ndarray:
-        """Read only the user_id column from every behaviours file
-        and return the deduplicated union as a numpy array.
-        """
+        """Read only the user_id column from every behaviours file"""
         all_users: set = set()
         for path in data_paths:
             bp = os.path.join(path, "behaviors.parquet")
@@ -270,24 +263,24 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
         return np.array(list(all_users))
 
     def _load_raw_data(self):
-        """Load raw EB-NeRD data from one or more directories."""
+        """Load raw EB-NeRD data"""
         data_paths = self._get_data_paths()
         path_names = [os.path.basename(p) for p in data_paths]
         print(f"Loading EB-NeRD ({self.config.version}) from {len(data_paths)} source(s): {path_names}")
 
-        # Articles (single file at dataset root)
+        # Articles (should be a single file at dataset root)
         print("Loading articles file...")
         self.df_item = self._load_articles_file()
         self.df_item = self.df_item.rename(columns={"article_id": "item_id"})
 
-        # Rename "subtitle" to "abstract" for consistency with other datasets
+        # Rename "subtitle" to "abstract" to match MIND naming
         self.df_item = self.df_item.rename(columns={"subtitle": "abstract"})
         print(f"Loaded {len(self.df_item):,} articles")
 
         # Behaviors
         print("Loading behaviors files...")
 
-        # Determine users to keep (None = all) via early preprocessors
+        # Determine users to keep
         all_user_ids = self._gather_all_user_ids(data_paths)
         sampled_users = self._resolve_early_user_filter(all_user_ids)
 

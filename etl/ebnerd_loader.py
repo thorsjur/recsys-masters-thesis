@@ -33,13 +33,11 @@ class EBNeRDDataLoader(EBNeRDBaseDataLoader):
             inview = inview_lists[i]
             clicked = clicked_lists[i]
 
-            if inview is None or (hasattr(inview, '__len__') and len(inview) == 0):
+            if inview is None or (hasattr(inview, "__len__") and len(inview) == 0):
                 continue
 
             clicked_set = (
-                set(clicked)
-                if clicked is not None and hasattr(clicked, '__len__') and len(clicked) > 0
-                else set()
+                set(clicked) if clicked is not None and hasattr(clicked, "__len__") and len(clicked) > 0 else set()
             )
 
             for article_id in inview:

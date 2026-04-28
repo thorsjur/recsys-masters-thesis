@@ -40,22 +40,22 @@ class EBNeRDImpressionDataLoader(EBNeRDBaseDataLoader):
             inview = inview_lists[i]
             clicked = clicked_lists[i]
 
-            if clicked is None or (hasattr(clicked, '__len__') and len(clicked) == 0):
+            if clicked is None or (hasattr(clicked, "__len__") and len(clicked) == 0):
                 continue
 
             clicked_set = set(clicked)
             negatives = (
                 [str(a) for a in inview if a not in clicked_set]
-                if inview is not None and hasattr(inview, '__len__') and len(inview) > 0
+                if inview is not None and hasattr(inview, "__len__") and len(inview) > 0
                 else []
             )
 
-            # Build history string from the separate history file (merged in base loader)
+            # Build the history string from the separate history file (merged in base loader)
             hist_str = ""
             if has_history:
                 h = histories[i]
                 if h is not None and not (isinstance(h, float) and np.isnan(h)):
-                    hist_str = " ".join(str(a) for a in h) # type: ignore
+                    hist_str = " ".join(str(a) for a in h)  # type: ignore
 
             for pos_item in clicked:
                 out_user.append(u)

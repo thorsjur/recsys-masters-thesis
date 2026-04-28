@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from typing import Tuple
 
+
 class BaseSplitter(ABC):
     def __init__(self, **kwargs):
         self.config = kwargs

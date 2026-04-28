@@ -1,5 +1,5 @@
 # Base configuration for impression-based datasets
-# Specific dataset configs should set "_base: _base_impression" to inherit these settings.
+# Specific dataset configs should set "_base: _base_impression" to inherit settings from this file.
 
 # Field definitions
 USER_ID_FIELD: user_id

@@ -3,7 +3,9 @@ from typing import Tuple, List
 from .base_splitter import BaseSplitter
 
 class GlobalTemporalSplitter(BaseSplitter):
-    """Split data by timestamp with configurable ratios."""
+    """Split data by timestamp with configurable ratios.
+    
+    Not currently used, but I keep it around in case there is a future need for the functionality."""
     
     def split(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         df = df.sort_values('timestamp').copy()

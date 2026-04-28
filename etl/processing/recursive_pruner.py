@@ -2,12 +2,13 @@ from etl.processing.base_preprocessor import BasePreprocessor
 
 
 class RecursivePruner(BasePreprocessor):
+    """This is currently not used, but I keep it around in case there is a future need for user/item pruning"""
     def __init__(self, min_user_hist=5, min_item_freq=10):
         self.min_user = min_user_hist
         self.min_item = min_item_freq
 
     def process(self, df_inter, df_item):
-        print(f"[{self.__class__.__name__}] Pruning graph (U>{self.min_user}, I>{self.min_item})...")
+        print(f"Pruning where user history length > {self.min_user} and item frequency > {self.min_item}...")
         
         df = df_inter.copy()
         initial_len = len(df)

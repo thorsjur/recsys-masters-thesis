@@ -20,7 +20,7 @@ class NLTKTokenizer(BasePreprocessor):
 
         tqdm.pandas()
         self._ensure_nltk()
-        
+
     @staticmethod
     def _ensure_nltk():
         import nltk
@@ -28,16 +28,22 @@ class NLTKTokenizer(BasePreprocessor):
         # Ensure punkt tokenizer models exist (needed by word_tokenize).
         try:
             from nltk.tokenize import word_tokenize as _wt
+
             _ = _wt("test")
         except LookupError:
             import nltk
+
             nltk.download("punkt")
             nltk.download("punkt_tab")
 
     def _tokenize_one(self, text: str) -> str:
         from nltk.tokenize import word_tokenize
 
-        tokens = word_tokenize(text.lower(), language=self.language) if self.to_lower else word_tokenize(text, language=self.language)
+        tokens = (
+            word_tokenize(text.lower(), language=self.language)
+            if self.to_lower
+            else word_tokenize(text, language=self.language)
+        )
         return " ".join(tokens)
 
     def process(self, df_inter: pd.DataFrame, df_item: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:

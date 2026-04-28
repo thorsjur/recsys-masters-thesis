@@ -5,7 +5,7 @@ from etl.mind_base_loader import MINDBaseDataLoader
 
 class MINDDataLoader(MINDBaseDataLoader):
     """
-    Explode impressions into atomic interactions with labels.
+    Explode impressions to atomic interactions with labels.
     Output columns: user_id, item_id, timestamp, label, impression_id
     """
 

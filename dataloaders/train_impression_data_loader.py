@@ -44,7 +44,8 @@ class TrainImpressionDataLoader(ImpressionDataLoader):
         
         neg_items = self._sample_k(cand, self.neg_k)  # (B, K)
 
-        # Build candidate list (pos + K neg) and shuffle to avoid position bias
+        # Build candidate list (pos + K neg) and shuffle to avoid position bias,
+        # this follows the same logic as in the NRMS source code
         pos = transformed[self.iid_field].view(-1, 1)  # (B,1)
         all_items = torch.cat([pos, neg_items], dim=1)  # (B,1+K)
         B, L = all_items.shape

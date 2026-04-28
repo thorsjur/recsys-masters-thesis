@@ -1,6 +1,2 @@
 # MIND Small Minor Preprocessing Dataset Configuration
 _base: _base_standard
-
-# These are temporary values, and will be overwritten programmatically.
-# They define the splits used for respectively train, validation and test.
-benchmark_filename: ['WINDOW1_train', 'WINDOW1_val', 'WINDOW1_test']

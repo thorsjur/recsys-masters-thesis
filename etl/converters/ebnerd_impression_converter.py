@@ -13,10 +13,10 @@ class EBNeRDImpressionAtomicConverter(EBNeRDAtomicConverter):
     @property
     def inter_fields(self) -> Dict[str, str]:
         return {
-            'user_id': 'user_id:token',
-            'item_id': 'item_id:token',
-            'timestamp': 'timestamp:float',
-            'impression_id': 'impression_id:token',
-            'neg_item_id_list': 'neg_item_id_list:token_seq',
-            'history_item_id_list': 'history_item_id_list:token_seq',
+            "user_id": "user_id:token",
+            "item_id": "item_id:token",
+            "timestamp": "timestamp:float",
+            "impression_id": "impression_id:token",
+            "neg_item_id_list": "neg_item_id_list:token_seq",
+            "history_item_id_list": "history_item_id_list:token_seq",
         }

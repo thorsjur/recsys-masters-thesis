@@ -54,7 +54,7 @@ class ImpressionDataLoader(AbstractDataLoader):
                 idx = torch.randperm(count, device=device)[:k]
                 out[b] = pool[idx]
             else:
-                # This is consistent with the code as provided by the authors,
+                # This is consistent with the code as provided by the NRMS authors,
                 # see https://github.com/wuch15/EMNLP2019-NRMS/blob/master/Baseline-NRMS.ipynb
                 reps = k // count + 1
                 expanded = pool.repeat(reps)

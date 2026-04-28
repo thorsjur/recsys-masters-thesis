@@ -10,20 +10,20 @@ class EBNeRDAtomicConverter(BaseAtomicConverter):
     @property
     def inter_fields(self) -> Dict[str, str]:
         return {
-            'user_id': 'user_id:token',
-            'item_id': 'item_id:token',
-            'label': 'label:float',
-            'timestamp': 'timestamp:float',
-            'impression_id': 'impression_id:token',
+            "user_id": "user_id:token",
+            "item_id": "item_id:token",
+            "label": "label:float",
+            "timestamp": "timestamp:float",
+            "impression_id": "impression_id:token",
         }
 
     @property
     def item_fields(self) -> Dict[str, str]:
         return {
-            'item_id': 'item_id:token',
-            'category_str': 'category:token',
-            'title': 'title:token_seq',
-            'abstract': 'abstract:token_seq',
+            "item_id": "item_id:token",
+            "category_str": "category:token",
+            "title": "title:token_seq",
+            "abstract": "abstract:token_seq",
         }
 
     def load_inter_df(self):

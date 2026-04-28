@@ -22,6 +22,12 @@ class EvalImpressionDataLoader(ImpressionDataLoader):
         super().__init__(config, dataset, sampler, shuffle=shuffle)
         
     def _parse_and_set_neg_sample_args(self, phase: str):
+        """
+        Parse and set the negative sampling arguments for the given phase (val/test) based on the config.
+        
+        This logic is a bit convoluted, but it allows for flexible configuration matching the conventions
+        of RecBole's config system.
+        """
         max_neg_sample_num = self.config["eval_max_neg_sample_num"]
         
         if isinstance(max_neg_sample_num, int):

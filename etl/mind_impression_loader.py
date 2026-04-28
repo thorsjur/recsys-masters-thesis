@@ -20,7 +20,7 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
         try:
             item, lab = token.rsplit("-", 1)
         except ValueError as e:
-            raise ValueError(f"Malformed impression token '{token}' for impression_id={impression_id}.") from e
+            raise ValueError(f"Bad impression token '{token}' for impression_id={impression_id}.") from e
 
         if lab not in ("0", "1"):
             raise ValueError(f"Unexpected label '{lab}' in token '{token}' for impression_id={impression_id}.")
@@ -89,6 +89,6 @@ class MINDImpressionDataLoader(MINDBaseDataLoader):
         )
 
         return out[["user_id", "item_id", "timestamp", "impression_id", "neg_item_id_list", "history_item_id_list"]]
-    
+
     def _finalize_interactions_df(self, df: pd.DataFrame) -> pd.DataFrame:
         return super()._finalize_interactions_df(df)

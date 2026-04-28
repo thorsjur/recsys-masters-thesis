@@ -61,7 +61,7 @@ class OptimizedSequentialDataset(Dataset):
             L = int(self.config["seq_len"][field])
             parsed = [seq[-L:] if len(seq) > L else seq for seq in parsed]
 
-        df[field] = parsed
+        df[field] = parsed # type: ignore
 
         max_seq_len = max(map(len, df[field].values)) if len(df[field]) else 0
         if L is not None:
@@ -98,10 +98,10 @@ class OptimizedSequentialDataset(Dataset):
         gathered = hist.gather(1, pos)
         out = gathered.masked_fill(~mask, padding_value)
 
-        self.inter_feat[field] = out
+        self.inter_feat[field] = out # type: ignore
 
         if len_field is not None:
-            self.inter_feat[len_field] = lens.clamp_max(self.max_item_list_len)
+            self.inter_feat[len_field] = lens.clamp_max(self.max_item_list_len) # type: ignore
 
     def _change_feat_format(self):
         super()._change_feat_format()
