@@ -91,16 +91,24 @@ class TemporalDatasetBuilder:
         self.temp_dir = self.dataset_dir
         logger.info(f"Building temporal splits with prefix '{temp_prefix}'")
 
+        def split_filename(split_name: str, time_range: Tuple[int, int]) -> str:
+            start, end = time_range
+            return (
+                f"{temp_prefix}_{split_name}_{self.granularity}_{start}_{end}_"
+                f"{train_length}_{val_length}_{test_length}"
+            )
+
         splits = {}
         for split_name, time_range in [("train", train_range), ("test", test_range)]:
             start, end = time_range
             logger.info(f"  {split_name}: {self.granularity}s {start}-{end}")
 
-            filename = f"{temp_prefix}_{split_name}_{self.granularity}_{train_length}_{val_length}_{test_length}"
+            filename = split_filename(split_name, time_range)
             filepath = self.temp_dir / f"{self.dataset_name}.{filename}.inter"
             if filepath.exists():
                 logger.info(
-                    f"Using existing files for {temp_prefix}_{split_name} {train_length}:{val_length}:{test_length} split"
+                    f"Using existing file for {temp_prefix}_{split_name} "
+                    f"{self.granularity}s {start}-{end} ({train_length}:{val_length}:{test_length}) split"
                 )
                 splits[split_name] = filename
                 continue
@@ -119,7 +127,11 @@ class TemporalDatasetBuilder:
             logger.info("  valid: Creating minimal dummy (RecBole compatibility)")
             df = self.load_time_range(*test_range).head(100)
 
-        filename = f"{temp_prefix}_valid"
+        filename = (
+            split_filename("valid", valid_range)
+            if valid_range
+            else f"{temp_prefix}_valid_dummy_{self.granularity}_{train_length}_{val_length}_{test_length}"
+        )
         filepath = self.temp_dir / f"{self.dataset_name}.{filename}.inter"
         splits["valid"] = filename
 

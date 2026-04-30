@@ -27,6 +27,10 @@ def _safe_ratio(numerator: int, denominator: int) -> float:
     return numerator / denominator if denominator > 0 else 0.0
 
 
+def _parse_range(value: Any) -> tuple[int, int]:
+    start, end = value.split("-", maxsplit=1)
+    return int(start), int(end)
+
 def compute_window_statistics(
     df: pd.DataFrame, window_info: Dict[str, Any], granularity: str = "hour"
 ) -> Dict[str, Any]:
@@ -36,11 +40,14 @@ def compute_window_statistics(
     Only positive interactions (label == 1) are counted. Non-clicked impressions
     (label == 0) are excluded from all statistics.
     """
-    train_start = window_info.get("train_start_unit") or window_info.get("start_unit") or 0
-    train_units = window_info.get("train_units", 0)
-    train_end = train_start + train_units - 1
-    test_start = window_info.get("test_start_unit") or (train_end + 1)
-    test_end = window_info.get("end_unit") or test_start
+    train_range = _parse_range(window_info.get("train_range"))
+    test_range = _parse_range(window_info.get("test_range"))
+
+    train_start = train_range[0]
+    train_end = train_range[1]
+
+    test_start = test_range[0]
+    test_end = test_range[1]
 
     train_df = _filter_positive(_split_by_time_unit(df, train_start, train_end))
     test_df = _filter_positive(_split_by_time_unit(df, test_start, test_end))
