@@ -34,3 +34,4 @@ cache/**
 output/plots/**
 
 \.**
+data_analysis/stan/two_condition
