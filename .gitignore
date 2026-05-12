@@ -35,3 +35,4 @@ output/plots/**
 
 \.**
 data_analysis/stan/two_condition
+data_analysis/stan/two_condition_alt_effect

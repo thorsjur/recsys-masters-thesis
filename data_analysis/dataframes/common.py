@@ -20,7 +20,6 @@ CONTEXT_COLUMNS = [
     "num_impressions",
     "avg_interactions_per_user",
     "avg_interactions_per_item",
-    "avg_items_per_impression",
     "user_activity_mean",
     "user_activity_std",
     "active_items",

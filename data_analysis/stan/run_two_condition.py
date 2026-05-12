@@ -1,12 +1,19 @@
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+STAN_DIR = PROJECT_ROOT / "data_analysis/stan"
+DATAFRAMES_DIR = PROJECT_ROOT / "data_analysis/dataframes"
+
+for import_path in (PROJECT_ROOT, DATAFRAMES_DIR):
+    if str(import_path) not in sys.path:
+        sys.path.insert(0, str(import_path))
 
 RESULTS_PATH = PROJECT_ROOT / "output/results/experiments.jsonl"
-STAN_FILE = PROJECT_ROOT / "data_analysis/stan/two_condition.stan"
+DEFAULT_STAN_FILE = "two_condition.stan"
 METRIC = "ndcg@5"
 CHAINS = 4
 WARMUP = 1500
@@ -26,7 +33,20 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Experiment ID for condition B. This becomes Stan condition 2.",
     )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_STAN_FILE
+    )
     return parser.parse_args()
+
+
+def resolve_stan_file(model: str) -> Path:
+    model_path = Path(model)
+
+    if model_path.is_absolute() or "/" in model or "\\" in model:
+        return model_path
+
+    return STAN_DIR / model_path
 
 
 def posterior_interval(draws: pd.DataFrame, name: str) -> tuple[float, float, float, float]:
@@ -85,10 +105,12 @@ def main() -> None:
     print(f"  condition 1  = {args.exp_a}")
     print(f"  condition 2  = {args.exp_b}")
     print(f"  metric       = {METRIC}")
+    stan_file = resolve_stan_file(args.model)
+    print(f"  model        = {stan_file}")
 
     from cmdstanpy import CmdStanModel
 
-    model = CmdStanModel(stan_file=str(STAN_FILE))
+    model = CmdStanModel(stan_file=str(stan_file))
 
     fit = model.sample(
         data=stan_data,
