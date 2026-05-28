@@ -1,15 +1,17 @@
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import numpy as np
 import pandas as pd
-from recbole.data.dataset import Dataset
 
 from data_analysis.atomic_file import find_dataset_dir, load_interaction_dataframe
 from util.constants import SEPARATOR
 from util.statistics import basic_stats
 
+if TYPE_CHECKING:
+    from recbole.data.dataset import Dataset
 
-def collect_recbole_dataset_stats(dataset: Dataset, config: dict[str, Any] | None = None) -> dict[str, Any]:
+
+def collect_recbole_dataset_stats(dataset: "Dataset", config: dict[str, Any] | None = None) -> dict[str, Any]:
     inter_feat = dataset.inter_feat
     if inter_feat is None:
         raise ValueError("Dataset has no interaction features")
@@ -154,7 +156,10 @@ def load_temporal_interaction_data(
     granularity: str,
     time_units: Iterable[int],
     positive_only: bool = True,
+    columns: Iterable[str] | None = None,
+    strict_columns: bool = True,
 ) -> pd.DataFrame:
+    """Load only the requested temporal units from atomic interaction files."""
     requested_units = _normalize_time_units(time_units)
     dataset_dir = find_dataset_dir(dataset_name, dataset_path)
 
@@ -164,15 +169,15 @@ def load_temporal_interaction_data(
         if (dataset_dir / f"{dataset_name}.{granularity}_{unit}.inter").exists()
     ]
     if temporal_files:
-        result = load_interaction_dataframe(temporal_files)
+        result = load_interaction_dataframe(temporal_files, columns=columns, strict_columns=strict_columns)
         return _filter_positive_interactions(result) if positive_only else result
 
     full_inter_path = dataset_dir / f"{dataset_name}.inter"
     if not full_inter_path.exists():
         raise ValueError(f"No data files found for {dataset_name} in range {requested_units}")
 
-    result = pd.read_csv(full_inter_path, sep="\t")
-    result.columns = [c.split(":")[0] for c in result.columns]
+    full_columns = _columns_with_timestamp(columns)
+    result = load_interaction_dataframe([full_inter_path], columns=full_columns, strict_columns=strict_columns)
 
     if "timestamp" not in result.columns:
         raise ValueError(f"Cannot derive time units for {dataset_name}: missing timestamp column in {full_inter_path}")
@@ -190,6 +195,12 @@ def load_temporal_interaction_data(
         raise ValueError(f"No data rows found for {dataset_name} in range {requested_units}")
 
     return _filter_positive_interactions(result) if positive_only else result
+
+
+def _columns_with_timestamp(columns: Iterable[str] | None) -> Iterable[str] | None:
+    if columns is None:
+        return None
+    return set(columns) | {"timestamp"}
 
 
 def _seconds_per_unit(granularity: str) -> int:

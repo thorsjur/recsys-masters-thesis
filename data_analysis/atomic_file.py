@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from pathlib import Path
 import pandas as pd
 
@@ -39,11 +40,14 @@ def load_item_dataframe(item_file: Path) -> pd.DataFrame:
     return df
 
 
-def load_interaction_dataframe(interaction_files: list[Path]) -> pd.DataFrame:
+def load_interaction_dataframe(
+    interaction_files: list[Path],
+    columns: Iterable[str] | None = None,
+    strict_columns: bool = True,
+) -> pd.DataFrame:
     dfs = []
     for path in interaction_files:
-        df = pd.read_csv(path, sep="\t")
-        df.columns = [column.split(":")[0] for column in df.columns]
+        df = _read_atomic_dataframe(path, columns, strict_columns)
 
         suffix = _parse_interaction_suffix(path)
         if suffix is not None and "time_unit" not in df.columns:
@@ -56,6 +60,29 @@ def load_interaction_dataframe(interaction_files: list[Path]) -> pd.DataFrame:
         raise ValueError("No interaction data loaded")
 
     return pd.concat(dfs, ignore_index=True)
+
+
+def _read_atomic_dataframe(
+    path: Path,
+    columns: Iterable[str] | None = None,
+    strict_columns: bool = True,
+) -> pd.DataFrame:
+    with path.open("r", encoding="utf-8") as handle:
+        header = handle.readline().rstrip("\n").split("\t")
+
+    bare_to_raw = {column.split(":")[0]: column for column in header}
+    if columns is None:
+        usecols = None
+    else:
+        requested = set(columns)
+        missing = requested - set(bare_to_raw) - {"time_unit"}
+        if missing and strict_columns:
+            raise ValueError(f"Columns {sorted(missing)} not found in {path}")
+        usecols = [raw for bare, raw in bare_to_raw.items() if bare in requested]
+
+    df = pd.read_csv(path, sep="\t", usecols=usecols)
+    df.columns = [column.split(":")[0] for column in df.columns]
+    return df
 
 
 def _parse_interaction_suffix(path: Path) -> tuple[str, int] | None:

@@ -36,3 +36,6 @@ output/plots/**
 \.**
 data_analysis/stan/two_condition
 data_analysis/stan/two_condition_alt_effect
+data_analysis/stan/complete_causal
+data_analysis/stan/output/
+data_analysis/dataframes/output/
