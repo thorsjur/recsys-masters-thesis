@@ -210,6 +210,8 @@ def _print_sampler_diagnostics(fit, max_treedepth: int) -> None:
     accept_stat = sampler_vars.get("accept_stat__")
     if accept_stat is not None:
         print(f"  mean accept_stat = {float(accept_stat.mean()):.4f}")
+        
+    print(fit.diagnose())
 
 
 if __name__ == "__main__":
