@@ -25,7 +25,7 @@ python run_slurm_experiment.py create \
     --dataset "$DATASET" \
     --window-size 48 \
     --window-ratio "30:6:12" \
-    --total-units 168 \
+    --total-units 336 \
     --granularity hour \
     --window-stride 12 \
     --account "$ACCOUNT" \
