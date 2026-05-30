@@ -18,6 +18,7 @@ from data_analysis.plot.common import (
 )
 from util.experiment_data import extract_temporal_metrics, load_experiment_results
 
+DEFAULT_CLI_METRICS = ["ndcg@5"]
 MARKER_STYLES = ["o", "s", "^", "D", "v", "P", "X", "*"]
 LINE_STYLES = ["-", "--", "-.", ":", "-", "--", "-.", ":"]
 
@@ -54,6 +55,7 @@ def plot_temporal_stability(
     dark_mode: bool = False,
     x_label: Optional[str] = None,
     y_label_suffix: Optional[str] = None,
+    panels: Optional[List[tuple[str, List[Dict[str, Any]]]]] = None,
     title: Optional[str] = None,
 ) -> Figure:
     if not all_data:
@@ -92,6 +94,32 @@ def plot_temporal_stability(
     if figsize is None:
         figsize = (10, 5) if n_metrics == 1 else (14, 8)
 
+    if panels and n_metrics == 1:
+        fig, axes = plt.subplots(1, len(panels), figsize=(14, 5), sharey=True, squeeze=False)
+        axes_flat = axes.flatten()
+        metric = plot_metrics[0]
+        for idx, (dataset_name, dataset_data) in enumerate(panels):
+            _plot_metric_lines(
+                axes_flat[idx],
+                dataset_data,
+                metric,
+                show_std,
+                show_individual_runs,
+                style_opts,
+                title=dataset_name,
+                show_y_axis=idx == 0,
+            )
+        y_min = min(ax.get_ylim()[0] for ax in axes_flat)
+        y_max = max(ax.get_ylim()[1] for ax in axes_flat)
+        for ax in axes_flat:
+            ax.set_ylim(y_min, y_max)
+        if title:
+            fig.suptitle(title, fontsize=title_size, fontweight="bold")
+            fig.tight_layout(rect=(0, 0, 1, 0.95))
+        else:
+            fig.tight_layout()
+        return fig
+
     ncols = min(n_metrics, 2)
     nrows = (n_metrics + 1) // 2
     fig, axes = plt.subplots(nrows, ncols, figsize=figsize, squeeze=False)
@@ -118,6 +146,8 @@ def _plot_metric_lines(
     show_std: bool,
     show_individual_runs: bool,
     style_opts: Dict[str, Any],
+    title: Optional[str] = None,
+    show_y_axis: bool = True,
 ) -> None:
     metadata = all_data[0]["metadata"]
     dataset_name = dataset_label(metadata["dataset"])
@@ -140,7 +170,7 @@ def _plot_metric_lines(
         color = colors[exp_idx % len(colors)]
         marker = MARKER_STYLES[exp_idx % len(MARKER_STYLES)] if style_opts["vary_markers"] else "o"
         linestyle = LINE_STYLES[exp_idx % len(LINE_STYLES)] if style_opts["vary_line_styles"] else "-"
-        label = data["metadata"]["model"] if len(all_data) > 1 else "Mean"
+        label = data["metadata"]["experiment_id"]
 
         ax.plot(
             x_vals,
@@ -182,14 +212,16 @@ def _plot_metric_lines(
     y_axis_label = f"{metric.upper()}{style_opts['y_label_suffix'] or ''}"
 
     ax.set_xlabel(x_axis_label, fontsize=style_opts["font_size"])
-    ax.set_ylabel(y_axis_label, fontsize=style_opts["font_size"])
+    ax.set_ylabel(y_axis_label if show_y_axis else "", fontsize=style_opts["font_size"])
     ax.set_title(
-        f"{dataset_name} {metric.upper()} Temporal Stability",
+        title or f"{dataset_name} {metric.upper()} Temporal Stability",
         fontsize=style_opts["title_size"],
         fontweight="bold",
         pad=12,
     )
     ax.tick_params(axis="both", which="major", labelsize=style_opts["tick_label_size"])
+    if not show_y_axis:
+        ax.tick_params(axis="y", labelleft=False)
 
     if style_opts["show_grid"]:
         ax.grid(True, alpha=style_opts["grid_alpha"], linestyle=style_opts["grid_style"])
@@ -199,6 +231,20 @@ def _plot_metric_lines(
     legend = ax.legend(loc=style_opts["legend_loc"], fontsize=style_opts["legend_size"])
     if legend:
         legend.get_frame().set_alpha(style_opts["legend_alpha"])
+
+
+def _dataset_panels(experiment_ids: list[str], all_data: List[Dict[str, Any]]) -> list[tuple[str, List[Dict[str, Any]]]]:
+    groups = {"mind": [], "eb": []}
+    for experiment_id, data in zip(experiment_ids, all_data):
+        exp_id = experiment_id.lower()
+        if "mind" in exp_id:
+            groups["mind"].append(data)
+        elif "eb" in exp_id:
+            groups["eb"].append(data)
+
+    if groups["mind"] and groups["eb"]:
+        return [("MIND", groups["mind"]), ("EB-NeRD", groups["eb"])]
+    return []
 
 
 def _default_output_path(experiment_ids: list[str]) -> Path:
@@ -211,7 +257,7 @@ def _default_output_path(experiment_ids: list[str]) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Plot temporal stability from experiment results")
     parser.add_argument("--experiment-id", nargs="+", required=True, help="One or more experiment ids")
-    parser.add_argument("--metrics", nargs="+", help="Metrics to plot")
+    parser.add_argument("--metrics", nargs="+", default=DEFAULT_CLI_METRICS, help="Metrics to plot")
     parser.add_argument("--title")
 
     args = parser.parse_args()
@@ -222,17 +268,19 @@ def main() -> None:
         )
         for experiment_id in args.experiment_id
     ]
-    legend_size = LEGEND_FONT_SIZE if len(all_data[0]["metrics"]) == 1 else 7.0
+    legend_size = 11.0 if len(all_data[0]["metrics"]) == 1 else 7.0
+    panels = _dataset_panels(args.experiment_id, all_data)
 
     fig = plot_temporal_stability(
         all_data=all_data,
         show_std=False,
-        line_width=0.0,
+        line_width=1.0,
         marker_size=6,
         vary_markers=True,
         legend_size=legend_size,
         legend_alpha=0.5,
         show_trend_line=True,
+        panels=panels,
         title=args.title,
     )
 
