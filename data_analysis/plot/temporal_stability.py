@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -251,7 +252,7 @@ def _default_output_path(experiment_ids: list[str]) -> Path:
     out_dir = get_output_dir()
     joined_ids = "_vs_".join(experiment_ids)
     safe_name = "".join(char if char.isalnum() or char in "._-" else "_" for char in joined_ids)
-    return out_dir / f"{safe_name}_temporal_stability.pdf"
+    return out_dir / f"{safe_name[:64]}_{uuid4()}_temporal_stability.pdf"
 
 
 def main() -> None:

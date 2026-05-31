@@ -34,7 +34,8 @@ def read_experiments(results_path: Path) -> list[dict]:
     rows = []
     with results_path.open("r", encoding="utf-8") as handle:
         for line in handle:
-            rows.append(json.loads(line))
+            if line.strip():
+                rows.append(json.loads(line))
     return rows
 
 
@@ -43,9 +44,9 @@ def make_metric_dataframe(results_path: Path, metric: str, columns: str = "basic
 
     for row in read_experiments(results_path):
         window_info = row["window_info"]
-        dataset_info = row.get("dataset_info", row.get("dataset_stats", {}))
-        user_activity = dataset_info.get("user_activity", {})
-        item_popularity = dataset_info.get("item_popularity", {})
+        dataset_info = row.get("dataset_info") or row.get("dataset_stats") or {}
+        user_activity = dataset_info.get("user_activity") or {}
+        item_popularity = dataset_info.get("item_popularity") or {}
 
         output_row = {
             "experiment_id": row["experiment_id"],
