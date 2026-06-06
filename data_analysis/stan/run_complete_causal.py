@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from data_analysis.dataframes.make_complete_causal_dataframe import (
     DEFAULT_BASE_PATH,
     DEFAULT_EPSILON,
+    DEFAULT_EXCLUDED_EXPERIMENTS,
     DEFAULT_METRIC,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_RESULTS_PATH,
@@ -43,12 +44,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    excluded = normalize_exclusions(args.exclude)
+    exclude = [*DEFAULT_EXCLUDED_EXPERIMENTS, *args.exclude]
+    excluded = normalize_exclusions(exclude)
 
     observations, stan_df, stan_data, levels = build_complete_causal_data(
         results_path=DEFAULT_RESULTS_PATH,
         metric=args.metric,
-        exclude=args.exclude,
+        exclude=exclude,
         base_path=DEFAULT_BASE_PATH,
         epsilon=DEFAULT_EPSILON,
     )

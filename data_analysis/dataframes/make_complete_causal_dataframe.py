@@ -20,6 +20,12 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "data_analysis/dataframes/output"
 DEFAULT_BASE_PATH = PROJECT_ROOT / "data/atomic_files"
 DEFAULT_METRIC = "ndcg@5"
 DEFAULT_EPSILON = 1e-6
+DEFAULT_EXCLUDED_EXPERIMENTS = (
+    "E00_pop_eb",
+    "E00_pop_mind",
+    "E00_random_eb",
+    "E00_random_mind",
+)
 
 FACTOR_SPECS = [
     ("D", "D_id", "dataset"),
@@ -185,7 +191,10 @@ def infer_news_encoder(model: str, config: dict[str, Any]) -> str:
     sentence_model = config.get("sentence_embedding_model")
     sentence_source = config.get("sentence_embedding_source")
 
-    if sentence_model and (sentence_source or model_lower in {"sbert", "sentencetransformer", "sentence_transformer"}):
+    if sentence_model and (
+        sentence_source
+        or model_lower in {"nrms", "sbert", "sentencetransformer", "sentence_transformer"}
+    ):
         underlying = sentence_model
     elif sentence_source:
         underlying = sentence_model or sentence_source
@@ -406,10 +415,11 @@ def format_levels(levels: dict[str, list[str]]) -> dict[str, Any]:
 
 def main() -> None:
     args = parse_args()
+    exclude = [*DEFAULT_EXCLUDED_EXPERIMENTS, *args.exclude]
     observations, stan_df, stan_data, levels = build_complete_causal_data(
         results_path=args.results_path,
         metric=args.metric,
-        exclude=args.exclude,
+        exclude=exclude,
         base_path=args.base_path,
         epsilon=args.epsilon,
     )
@@ -418,7 +428,7 @@ def main() -> None:
     print("Prepared complete causal Stan data")
     print(f"  observations = {stan_data['N']}")
     print(f"  metric       = {args.metric}")
-    print(f"  excluded     = {len(normalize_exclusions(args.exclude))}")
+    print(f"  excluded     = {len(normalize_exclusions(exclude))}")
     for key, path in paths.items():
         print(f"  {key:14s}= {path}")
 
