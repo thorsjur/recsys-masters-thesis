@@ -1,6 +1,6 @@
 # Stability Experiments for News Recommendation
 
-Repository for a master's thesis project on temporal stability in news recommendation. It contains data preparation pipelines for MIND and EB-NeRD, RecBole-compatible model and data-loading extensions, sliding-window experiment orchestration, and analysis utilities for completed experiments.
+Repository for a master's thesis project on temporal stability in news recommendation. It contains data preparation pipelines for MIND and EB-NeRD, a model execution layer built around RecBole, and data-loading extensions, sliding-window experiment orchestration, and analysis utilities for completed experiments. Experiments are primarily run on a Slurm cluster, but the code is designed to be runnable locally as well.
 
 ## Overview
 
