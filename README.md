@@ -1,20 +1,18 @@
 # Stability Experiments for News Recommendation
 
-Master's thesis' repository for MIND and EB-NeRD data preparation, running temporal stability experiments, and analyzing the results from the experiments.
-
-> [!IMPORTANT]
-> DISCLAIMER: For this codebase I have at times used GitHub Copilot (primarily with the *Claude Opus 4.5* model) for code generation and suggestions. While I have reviewed, modified, and tested all generated code, please be aware that some parts may contain inaccuracies or suboptimal implementations.
+Repository for a master's thesis project on temporal stability in news recommendation. It contains data preparation pipelines for MIND and EB-NeRD, RecBole-compatible model and data-loading extensions, sliding-window experiment orchestration, and analysis utilities for completed experiments.
 
 ## Overview
 
 ![Architecture overview](./docs/diagrams/recsys-masters-thesis-overview-light.svg#gh-light-mode-only)
 ![Architecture overview](./docs/diagrams/recsys-masters-thesis-overview.svg#gh-dark-mode-only)
 
-The workflow has three main parts:
+The workflow has four main parts:
 
 - `run_etl.py` prepares raw datasets into RecBole-compatible atomic files.
-- `experiments/` defines the main experiment runs.
-- `data_analysis/` and `plot/` generate summaries, diagnostics, and figures from completed runs.
+- `configs/`, `models/`, `dataloaders/`, and `custom_datasets/` define the RecBole configuration and extensions used by the experiments.
+- `experiments/` and `run_slurm_experiment.py` define and submit the main experiment runs.
+- `data_analysis/` generates summaries, diagnostics, statistical models, and figures from completed runs.
 
 The experiments use sliding time windows to compare recommendation quality across changing news periods. Each window is prepared from atomic files (file format as used by the RecBole framework), evaluated with one or more seeds, and logged with enough metadata to reproduce or analyze the run later.
 
@@ -25,7 +23,7 @@ conda env create -f environment.yml
 conda activate recsys_stability
 ```
 
-Place raw datasets under:
+Raw datasets are not included in the repository. Place them under:
 
 - `data/MINDlarge`
 - `data/EBNeRDlarge`
@@ -56,9 +54,12 @@ For Slurm runs, use the scripts in `experiments/slurm_experiments/`:
 
 ```bash
 export SLURM_ACCOUNT=<account>
+export RECSYS_CONDA_ENV=recsys_stability
 bash experiments/slurm_experiments/E00_random_mind.sh
 python run_slurm_experiment.py submit E00_random_mind
 ```
+
+`RECSYS_CONDA_ENV`, `RECSYS_CONDA_MODULE`, and `SLURM_MAIL_USER` can be set to match the local cluster environment.
 
 For a local run, call the stability runner directly:
 
@@ -92,6 +93,5 @@ models/           Recommendation models used by RecBole
 slurm/            Slurm orchestration, state, and job templates
 stability/        Sliding-window experiment protocol
 data_analysis/    Dataset and result analysis utilities
-plot/             Plotting utilities and generated figures
-output/           Logs, generated Slurm scripts, state, and results
+output/results/   Committed experiment result logs used for analysis
 ```
