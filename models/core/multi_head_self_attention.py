@@ -17,9 +17,9 @@ class MultiHeadSelfAttention(nn.Module):
     While not the exact same implementation as described in the NRMS paper, it follows the
     NRMS source code more closely than the BilinearMultiHeadSelfAttention.
 
-    I am pretty sure this is what the authors used in practice, as the current implementation
-    with the QKV-style matrices give a parameter count much closer to what is reported in the paper.
-    531K params against the reported 530K, while with the bilinear version it is 2.7M params.
+    The QKV-style parameterization gives a parameter count much closer to the
+    paper's reported model size: approximately 531K parameters compared with
+    the reported 530K, while the bilinear version has about 2.7M parameters.
     """
 
     def __init__(self, num_heads: int, input_dim: int, head_dim: int):

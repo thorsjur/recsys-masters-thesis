@@ -12,7 +12,7 @@ class EBNeRDBaseDataLoader(AbstractDataLoader, ABC):
     """
     Common base for EB-NeRD loaders.
 
-    Reads thye parquet files as provided by the EB-NeRD authors.
+    Reads the parquet files as provided by the EB-NeRD authors.
     """
 
     CHUNK_SIZE = 50_000

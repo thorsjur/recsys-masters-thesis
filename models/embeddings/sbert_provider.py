@@ -78,7 +78,7 @@ class _EmbeddingDiskCache:
                         miss_idx.append(i)
                         miss_sent.append(s)
         except Exception:
-            # DB probably doesn't exist yet
+            # The embedding cache may be absent on first use.
             miss_idx = list(range(len(sentences)))
             miss_sent = list(sentences)
 
