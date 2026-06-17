@@ -42,9 +42,7 @@ class TemporalConfig:
     granularity: str
 
     @classmethod
-    def from_ratio(
-        cls, ratio_str: str, window_size: int, window_stride: Optional[int], granularity: str
-    ) -> "TemporalConfig":
+    def from_ratio(cls, ratio_str: str, window_size: int, window_stride: Optional[int], granularity: str) -> "TemporalConfig":
         """Create config from ratio string like '5:1:1' or '5:2'."""
         ratio_parts = [int(x) for x in ratio_str.split(":")]
 
@@ -157,9 +155,7 @@ def print_window_plan(windows: List[WindowConfig], config: TemporalConfig):
 
 def print_window_header(w: WindowConfig, num_windows: int, config: TemporalConfig):
     """Log header for a single window execution."""
-    valid_info = (
-        f" | Valid: {w.valid_start}-{w.valid_end} ({config.valid_units} {config.unit_name}s)" if w.has_valid else ""
-    )
+    valid_info = f" | Valid: {w.valid_start}-{w.valid_end} ({config.valid_units} {config.unit_name}s)" if w.has_valid else ""
     logger.info(
         f"Window {w.window_idx+1}/{num_windows}: {config.unit_name.capitalize()}s {w.start_unit}-{w.end_unit} | "
         f"Train: {w.train_start}-{w.train_end} ({config.train_units} {config.unit_name}s){valid_info} | "
@@ -188,8 +184,7 @@ def validate_available_units(
         sys.exit(1)
 
     logger.info(
-        f"Found {len(available_units)} {config.unit_name} files: "
-        f"{config.unit_name}s {min(available_units)}-{max(available_units)}"
+        f"Found {len(available_units)} {config.unit_name} files: " f"{config.unit_name}s {min(available_units)}-{max(available_units)}"
     )
 
     if max(available_units) < total_units:

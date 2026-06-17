@@ -65,7 +65,6 @@ For a local run, call the stability runner directly:
 
 ```bash
 python run_stability_test.py \
-  --experiment A \
   --model RANDOM \
   --dataset mind \
   --window-size 48 \
